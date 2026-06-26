@@ -49,12 +49,16 @@ Cambia estas contraseñas antes de desplegar en un entorno real.
 
 ## Variables de entorno
 
-| Variable      | Descripción                                      | Default (dev)              |
-|---------------|--------------------------------------------------|----------------------------|
-| `JWT_SECRET`  | Clave para firmar tokens JWT                     | Obligatorio en producción  |
-| `PORT`        | Puerto del servidor Express                      | `5000`                     |
-| `NODE_ENV`    | `development` o `production`                     | `development`              |
-| `CORS_ORIGIN` | Orígenes permitidos en prod (separados por coma) | `http://localhost:5173`    |
+| Variable                    | Descripción                                      | Default (dev)              |
+|-----------------------------|--------------------------------------------------|----------------------------|
+| `JWT_SECRET`                | Clave para firmar tokens JWT                     | Obligatorio en producción  |
+| `PORT`                      | Puerto del servidor Express                      | `5000`                     |
+| `NODE_ENV`                  | `development` o `production`                     | `development`              |
+| `CORS_ORIGIN`               | Orígenes permitidos en prod (separados por coma) | `http://localhost:5173`    |
+| `DATABASE_URL`              | URL de conexión a PostgreSQL (ej. Supabase)      | —                          |
+| `DB_PATH`                   | Ruta a SQLite (fallback si no hay DATABASE_URL)  | `./db/innova.sqlite`       |
+| `SUPABASE_URL`              | URL del proyecto Supabase (Storage)              | —                          |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key para Supabase Storage           | —                          |
 
 Consulta [`.env.example`](.env.example) para la plantilla.
 

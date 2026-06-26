@@ -32,12 +32,39 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Initialize SQLite database
-const sequelize = new Sequelize({
-  dialect: "sqlite",
-  storage: process.env.DB_PATH || path.join(__dirname, "db", "innova.sqlite"),
-  logging: false,
-});
+// Initialize database connection (PostgreSQL via DATABASE_URL or SQLite fallback)
+function createSequelizeInstance() {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (databaseUrl) {
+    console.log("🔌 Conectando a PostgreSQL (DATABASE_URL detectada).");
+    return new Sequelize(databaseUrl, {
+      dialect: "postgres",
+      dialectOptions: {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      },
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000,
+      },
+      logging: false,
+    });
+  }
+
+  console.log("🔌 Conectando a SQLite (DATABASE_URL no definida).");
+  return new Sequelize({
+    dialect: "sqlite",
+    storage: process.env.DB_PATH || path.join(__dirname, "db", "innova.sqlite"),
+    logging: false,
+  });
+}
+
+const sequelize = createSequelizeInstance();
 
 // Ensure uploads folder exists
 const uploadDir = path.join(__dirname, "uploads");

@@ -67,10 +67,12 @@ Consulta [`.env.example`](.env.example) para la plantilla.
 ```
 Recursos/
 ├── src/              # Frontend React + Vite
-├── server.js         # Backend Express + SQLite
+├── server.js         # Backend Express + SQLite/PostgreSQL
 ├── db.json           # Datos de ejemplo (seed al primer arranque)
-├── innova.sqlite     # Base de datos (generada automáticamente)
-├── uploads/          # Archivos subidos por el CMS
+├── server/           # Modelos y servicios compartidos
+├── scripts/          # Scripts de utilidad (migración, etc.)
+├── db/               # Base de datos SQLite (solo en modo SQLite)
+├── uploads/          # Archivos subidos por el CMS (fallback local)
 └── dist/             # Build de producción (generado con npm run build)
 ```
 
@@ -85,6 +87,23 @@ node scripts/migrate-sqlite-to-postgres.js
 ```
 
 El script creará las tablas en PostgreSQL y migrará `Usuarios`, `Recursos`, `Tutorials` y `Noticia`.
+
+## Migración de archivos a Supabase Storage
+
+Si configuras `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`, los archivos subidos se almacenarán en Supabase Storage. Para migrar archivos existentes de `uploads/`:
+
+```bash
+node scripts/migrate-uploads-to-storage.js
+```
+
+Si no configuras Storage, los archivos seguirán guardándose en disco local (`uploads/`).
+
+## Notas sobre Supabase (plan gratuito)
+
+- Base de datos: 500 MB.
+- Almacenamiento: 1 GB.
+- Transferencia: 2 GB/mes.
+- Conexiones: usa el **Transaction Pooler** (puerto `6543`) para no agotarlas.
 
 ## Scripts disponibles
 

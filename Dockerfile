@@ -19,6 +19,8 @@ RUN npm ci --only=production
 
 COPY --from=build /app/dist ./dist
 COPY server.js db.json ./
+COPY server ./server
+COPY scripts ./scripts
 
 # Ensure volume directories exist
 RUN mkdir -p uploads backups db

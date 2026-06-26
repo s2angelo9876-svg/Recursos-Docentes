@@ -553,13 +553,28 @@ app.post("/api/admin/backup", authenticateToken, requireRole(["Administrador"]),
     const currentBackupDir = path.join(backupsDir, `respaldo_${timestamp}`);
     fs.mkdirSync(currentBackupDir, { recursive: true });
 
-    // 1. Copy SQLite database (usar la misma ruta que Sequelize)
-    const dbPath = sequelize.options.storage || path.join(__dirname, "db", "innova.sqlite");
-    if (fs.existsSync(dbPath)) {
-      fs.copyFileSync(dbPath, path.join(currentBackupDir, "innova.sqlite"));
+    const isPostgres = sequelize.getDialect() === "postgres";
+
+    if (isPostgres) {
+      // Exportar datos a JSON para respaldo
+      const [recursos, tutoriales, noticias] = await Promise.all([
+        Recurso.findAll(),
+        Tutorial.findAll(),
+        Noticia.findAll(),
+      ]);
+      fs.writeFileSync(
+        path.join(currentBackupDir, "data.json"),
+        JSON.stringify({ recursos, tutoriales, noticias }, null, 2)
+      );
+    } else {
+      // Copy SQLite database file
+      const dbPath = sequelize.options.storage || path.join(__dirname, "db", "innova.sqlite");
+      if (fs.existsSync(dbPath)) {
+        fs.copyFileSync(dbPath, path.join(currentBackupDir, "innova.sqlite"));
+      }
     }
 
-    // 2. Copy uploads folder
+    // Copy local uploads folder (if files are still stored locally)
     const uploadsSource = path.join(__dirname, "uploads");
     if (fs.existsSync(uploadsSource)) {
       copyDirSync(uploadsSource, path.join(currentBackupDir, "uploads"));

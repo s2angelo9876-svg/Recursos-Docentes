@@ -74,6 +74,18 @@ Recursos/
 └── dist/             # Build de producción (generado con npm run build)
 ```
 
+## Migración SQLite → PostgreSQL
+
+1. Configura `DATABASE_URL` en tu `.env` con la URL de Supabase.
+2. Asegúrate de que `DB_PATH` apunte a la base de datos SQLite de origen.
+3. Ejecuta el script de migración:
+
+```bash
+node scripts/migrate-sqlite-to-postgres.js
+```
+
+El script creará las tablas en PostgreSQL y migrará `Usuarios`, `Recursos`, `Tutorials` y `Noticia`.
+
 ## Scripts disponibles
 
 | Comando          | Descripción                              |

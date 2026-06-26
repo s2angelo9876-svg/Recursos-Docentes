@@ -1,0 +1,180 @@
+{
+  "recursos": [
+    {
+      "id": 1,
+      "titulo": "Khan Academy - Matemáticas",
+      "area": "Matemática",
+      "grados": [
+        "1.° Sec",
+        "2.° Sec"
+      ],
+      "tipo": "Web / App",
+      "desc": "Plataforma interactiva para práctica de aritmética, álgebra y geometría con retroalimentación inmediata.",
+      "url": "https://es.khanacademy.org",
+      "contenidos": [
+        {
+          "id": 101,
+          "titulo": "Página Principal Khan Academy",
+          "tipo": "url",
+          "url": "https://es.khanacademy.org"
+        },
+        {
+          "id": 102,
+          "titulo": "Práctica de Álgebra I",
+          "tipo": "url",
+          "url": "https://es.khanacademy.org/math/algebra"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "titulo": "PhET Interactive Simulations",
+      "area": "Ciencia y Tecnología",
+      "grados": [
+        "2.° Sec",
+        "3.° Sec",
+        "4.° Sec"
+      ],
+      "tipo": "Simulación",
+      "desc": "Simulaciones interactivas de física, química, biología y ciencias de la tierra desarrolladas por la Universidad de Colorado.",
+      "url": "https://phet.colorado.edu/es/",
+      "contenidos": [
+        {
+          "id": 201,
+          "titulo": "Simulador: Estados de la Materia",
+          "tipo": "url",
+          "url": "https://phet.colorado.edu/sims/html/states-of-matter/latest/states-of-matter_es.html"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "titulo": "Diccionario Ortográfico - RAE",
+      "area": "Comunicación",
+      "grados": [
+        "1.° Sec",
+        "2.° Sec",
+        "3.° Sec",
+        "4.° Sec",
+        "5.° Sec"
+      ],
+      "tipo": "Web / App",
+      "desc": "Recurso oficial de consulta gramatical, ortográfica y semántica de la Real Academia Española.",
+      "url": "https://www.rae.es",
+      "contenidos": []
+    },
+    {
+      "id": 4,
+      "titulo": "Duolingo para Escuelas",
+      "area": "Inglés",
+      "grados": [
+        "1.° Sec",
+        "2.° Sec"
+      ],
+      "tipo": "Juego",
+      "desc": "Herramienta de aprendizaje de idiomas gamificada ideal para el desarrollo de competencias de listening y reading.",
+      "url": "https://schools.duolingo.com",
+      "contenidos": []
+    },
+    {
+      "id": 5,
+      "titulo": "GeaCron - Mapas Históricos",
+      "area": "Ciencias Sociales",
+      "grados": [
+        "4.° Sec",
+        "5.° Sec"
+      ],
+      "tipo": "Web / App",
+      "desc": "Atlas histórico mundial interactivo y georreferenciado que permite ver la evolución política del planeta desde el 3000 a.C.",
+      "url": "https://geacron.com",
+      "contenidos": []
+    },
+    {
+      "id": 6,
+      "titulo": "Code.org - Hora del Código",
+      "area": "Educación para el Trabajo",
+      "grados": [
+        "1.° Sec",
+        "2.° Sec"
+      ],
+      "tipo": "Web / App",
+      "desc": "Introducción a las ciencias de la computación y la programación a través de rompecabezas visuales interactivos.",
+      "url": "https://code.org",
+      "contenidos": []
+    },
+    {
+      "id": 7,
+      "titulo": "Google Arts & Culture",
+      "area": "Arte y Cultura",
+      "grados": [
+        "2.° Sec",
+        "3.° Sec"
+      ],
+      "tipo": "Web / App",
+      "desc": "Explora exposiciones interactivas, obras de arte en alta resolución y museos de todo el mundo usando tecnología de Street View.",
+      "url": "https://artsandculture.google.com",
+      "contenidos": []
+    },
+    {
+      "id": 8,
+      "titulo": "Ejercicios y Activación Física",
+      "area": "Educación Física",
+      "grados": [
+        "3.° Sec"
+      ],
+      "tipo": "Video",
+      "desc": "Rutinas guiadas de estiramiento y activación cardiovascular para realizar en espacios reducidos dentro o fuera del aula.",
+      "url": "https://youtube.com",
+      "contenidos": []
+    }
+  ],
+  "proyectos": [
+    {
+      "id": 1,
+      "titulo": "Uso de Canva en el Aula",
+      "area": "Comunicación",
+      "desc": "Tutorial para docentes sobre diseño de materiales visuales con Canva Educación.",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "audiencia": "docente"
+    },
+    {
+      "id": 2,
+      "titulo": "Introducción a la Programación con Scratch",
+      "area": "Ciencia y Tecnología",
+      "desc": "Video introductorio para estudiantes sobre bloques de programación en Scratch.",
+      "url": "https://www.youtube.com/watch?v=VzPDL0L7sus",
+      "audiencia": "estudiante"
+    },
+    {
+      "id": 3,
+      "titulo": "Herramientas TIC para la Evaluación Formativa",
+      "area": "Educación para el Trabajo",
+      "desc": "Recorrido por plataformas digitales útiles para evaluar el aprendizaje en el aula.",
+      "url": "https://www.youtube.com/watch?v=ysz5S6PUM-U",
+      "audiencia": "ambos"
+    }
+  ],
+  "noticias": [
+    {
+      "id": 1,
+      "fecha": "10 Jun 2026",
+      "titulo": "Inauguración del Repositorio Digital Innova Bandera",
+      "desc": "Lanzamos de manera oficial el nuevo centro de recursos digitales para la innovación pedagógica en el aula.",
+      "autor": "Dirección Académica"
+    },
+    {
+      "id": 2,
+      "fecha": "05 Jun 2026",
+      "titulo": "Taller sobre el uso pedagógico de simuladores interactivos",
+      "desc": "Se invita a toda la plana docente a participar en la capacitación docente sobre simuladores PhET este viernes a las 4:00 p.m.",
+      "autor": "Área de Innovación"
+    },
+    {
+      "id": 3,
+      "fecha": "01 Jun 2026",
+      "titulo": "Evaluación del primer trimestre de proyectos de innovación",
+      "desc": "El jurado pedagógico ha culminado la evaluación de los proyectos de innovación del trimestre. Se seleccionaron 2 proyectos destacados.",
+      "autor": "Coordinación TIC"
+    }
+  ]
+}

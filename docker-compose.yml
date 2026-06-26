@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - JWT_SECRET=2b5065a74459972168ddc5b72f2a47495b949723bd01c42d4531515f3a0a7585
+      - CORS_ORIGIN=http://localhost:5000
+      - DB_PATH=/app/db/innova.sqlite
+    volumes:
+      - ./db:/app/db
+      - ./uploads:/app/uploads
+      - ./backups:/app/backups
+    restart: always
+
+volumes:
+  db-data:
+  uploads-volume:
+  backups-volume:

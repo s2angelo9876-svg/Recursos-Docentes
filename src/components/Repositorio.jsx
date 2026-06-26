@@ -16,7 +16,6 @@ const AREAS_CNEB = [
 ];
 
 const GRADOS = ["1.° Sec", "2.° Sec", "3.° Sec", "4.° Sec", "5.° Sec"];
-const TIPOS_RECURSO = ["Video", "Web / App", "PDF", "Simulación", "Juego", "Colección"];
 
 export default function Repositorio({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
   // Traemos las acciones globales de nuestro contexto sincronizado con el Backend CMS
@@ -25,8 +24,6 @@ export default function Repositorio({ isAdminMode = false, onEditClick = null, o
   const [busqueda, setBusqueda] = useState("");
   const [areaSel, setAreaSel] = useState("Todas");
   const [gradoSel, setGradoSel] = useState("Todos");
-  const [tipoSel, setTipoSel] = useState("Todos");
-  const [soloFavoritos, setSoloFavoritos] = useState(false);
 
   // Estado extendido para el acordeón de materiales múltiples
   const [expandedCards, setExpandedCards] = useState([]);
@@ -45,15 +42,13 @@ export default function Repositorio({ isAdminMode = false, onEditClick = null, o
       const matchArea = areaSel === "Todas" || r.area === areaSel;
       // Verificación segura de que r.grados exista antes de usar includes
       const matchGrado = gradoSel === "Todos" || (r.grados && r.grados.includes(gradoSel));
-      const matchTipo = tipoSel === "Todos" || r.tipo === tipoSel;
       const matchBusqueda =
         (r.titulo || "").toLowerCase().includes(busqueda.toLowerCase()) ||
         (r.desc || "").toLowerCase().includes(busqueda.toLowerCase());
-      const matchFavorito = !soloFavoritos || (favoritos && favoritos.includes(r.id));
 
-      return matchArea && matchGrado && matchTipo && matchBusqueda && matchFavorito;
+      return matchArea && matchGrado && matchBusqueda;
     });
-  }, [recursos, areaSel, gradoSel, tipoSel, busqueda, soloFavoritos, favoritos]);
+  }, [recursos, areaSel, gradoSel, busqueda]);
 
   // Selector de íconos del card principal
   const getIconClass = (tipo) => {
@@ -81,7 +76,7 @@ export default function Repositorio({ isAdminMode = false, onEditClick = null, o
       {/* Barra de Búsqueda y Filtros */}
       <div className="bg-white dark:bg-dark-card p-5 rounded-2xl border border-gray-150 dark:border-dark-border shadow-sm space-y-4 transition-colors duration-300">
 
-        {/* Fila 1: Input y selectores */}
+        {/* Fila 1: Input y selector de área */}
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
             <span className="absolute left-3 top-3 text-gray-400 dark:text-gray-500 text-xs">
@@ -96,73 +91,46 @@ export default function Repositorio({ isAdminMode = false, onEditClick = null, o
             />
           </div>
 
-          <div className="flex gap-2">
-            <select
-              className="border border-gray-200 dark:border-dark-border rounded-xl px-3 py-2 text-xs bg-white dark:bg-dark-card text-gray-700 dark:text-gray-200 outline-none"
-              value={areaSel}
-              onChange={(e) => setAreaSel(e.target.value)}
-            >
-              <option value="Todas">Todas las Áreas</option>
-              {AREAS_CNEB.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="border border-gray-200 dark:border-dark-border rounded-xl px-3 py-2 text-xs bg-white dark:bg-dark-card text-gray-700 dark:text-gray-200 outline-none"
-              value={tipoSel}
-              onChange={(e) => setTipoSel(e.target.value)}
-            >
-              {TIPOS_RECURSO.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            className="border border-gray-200 dark:border-dark-border rounded-xl px-3 py-2 text-xs bg-white dark:bg-dark-card text-gray-700 dark:text-gray-200 outline-none"
+            value={areaSel}
+            onChange={(e) => setAreaSel(e.target.value)}
+          >
+            <option value="Todas">Todas las Áreas</option>
+            {AREAS_CNEB.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Fila 2: Filtros por grado en formato pills y favoritos */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-100 dark:border-dark-border">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mr-2">
-              Grado:
-            </span>
+        {/* Fila 2: Filtros por grado en formato pills */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-gray-100 dark:border-dark-border">
+          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mr-2">
+            Grado:
+          </span>
+          <button
+            onClick={() => setGradoSel("Todos")}
+            className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${gradoSel === "Todos"
+              ? "bg-primary dark:bg-dark-accent text-white border-primary dark:border-dark-accent"
+              : "bg-gray-50 dark:bg-dark-border text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border hover:bg-gray-100"
+              }`}
+          >
+            Todos
+          </button>
+          {GRADOS.map((g) => (
             <button
-              onClick={() => setGradoSel("Todos")}
-              className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${gradoSel === "Todos"
+              key={g}
+              onClick={() => setGradoSel(g)}
+              className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${gradoSel === g
                 ? "bg-primary dark:bg-dark-accent text-white border-primary dark:border-dark-accent"
                 : "bg-gray-50 dark:bg-dark-border text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border hover:bg-gray-100"
                 }`}
             >
-              Todos
+              {g}
             </button>
-            {GRADOS.map((g) => (
-              <button
-                key={g}
-                onClick={() => setGradoSel(g)}
-                className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${gradoSel === g
-                  ? "bg-primary dark:bg-dark-accent text-white border-primary dark:border-dark-accent"
-                  : "bg-gray-50 dark:bg-dark-border text-gray-600 dark:text-gray-300 border-gray-200 dark:border-dark-border hover:bg-gray-100"
-                  }`}
-              >
-                {g}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setSoloFavoritos(!soloFavoritos)}
-            className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold flex items-center gap-1.5 transition-all ${soloFavoritos
-              ? "bg-amber-500 border-amber-500 text-white shadow-sm"
-              : "bg-white dark:bg-dark-card border-gray-250 dark:border-dark-border text-gray-600 dark:text-gray-300 hover:bg-gray-150"
-              }`}
-          >
-            <i className={`fas fa-star ${soloFavoritos ? "text-white" : "text-amber-500"}`}></i>
-            Solo Favoritos
-          </button>
+          ))}
         </div>
       </div>
 
@@ -321,7 +289,7 @@ export default function Repositorio({ isAdminMode = false, onEditClick = null, o
           <i className="fas fa-folder-open text-gray-300 dark:text-gray-600 text-5xl mb-4"></i>
           <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 uppercase">Sin recursos encontrados</h3>
           <p className="text-gray-400 dark:text-gray-500 text-xs mt-1 max-w-xs mx-auto">
-            Prueba a cambiar los criterios de búsqueda o filtros de grado y área.
+            Prueba a cambiar los criterios de búsqueda, área o grado.
           </p>
         </div>
       )}

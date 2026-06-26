@@ -10,6 +10,7 @@ import rateLimit from "express-rate-limit";
 import { fileURLToPath } from "url";
 import { Sequelize } from "sequelize";
 import { defineModels } from "./server/models.js";
+import { uploadFile, deleteFile, isStorageEnabled } from "./server/services/storage.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -145,15 +146,15 @@ const ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const cleanName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
-    cb(null, `${Date.now()}-${cleanName}`);
-  },
-});
+function cleanFileName(originalName) {
+  return originalName.replace(/[^a-zA-Z0-9.-]/g, "_");
+}
+
+function generateFileName(originalName) {
+  return `${Date.now()}-${cleanFileName(originalName)}`;
+}
+
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -344,25 +345,11 @@ app.delete("/api/recursos/:id", authenticateToken, requireRole(["Administrador",
     const resource = await Recurso.findByPk(id);
     if (!resource) return res.status(404).json({ error: "Recurso no encontrado" });
 
-    if (resource.url && resource.url.startsWith("/uploads/")) {
-      const fileName = resource.url.replace("/uploads/", "");
-      const filePath = path.join(uploadDir, fileName);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        console.log(`Archivo físico único eliminado: ${filePath}`);
-      }
-    }
+    await deleteFile(resource.url, uploadDir);
 
     const contentList = resource.contenidos || [];
     for (const item of contentList) {
-      if (item.url && item.url.startsWith("/uploads/")) {
-        const fileName = item.url.replace("/uploads/", "");
-        const filePath = path.join(uploadDir, fileName);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          console.log(`Archivo físico en cascada eliminado: ${filePath}`);
-        }
-      }
+      await deleteFile(item.url, uploadDir);
     }
 
     await resource.destroy();
@@ -510,7 +497,7 @@ app.delete("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]
 
 // --- FILE UPLOAD ENDPOINT ---
 app.post("/api/upload", authenticateToken, requireRole(["Administrador", "Docente"]), (req, res) => {
-  upload.single("file")(req, res, (err) => {
+  upload.single("file")(req, res, async (err) => {
     if (err) {
       if (err instanceof multer.MulterError) {
         if (err.code === "LIMIT_FILE_SIZE") {
@@ -527,8 +514,16 @@ app.post("/api/upload", authenticateToken, requireRole(["Administrador", "Docent
       console.log(`[AUDIT] ❌ Subida fallida: Multer no capturó ningún archivo.`);
       return res.status(400).json({ error: "No se envió ningún archivo" });
     }
-    console.log(`[AUDIT] ✅ Subida exitosa: Archivo=${req.file.filename} (${req.file.size} bytes)`);
-    res.json({ success: true, url: `/uploads/${req.file.filename}`, filename: req.file.filename });
+
+    try {
+      const filename = generateFileName(req.file.originalname);
+      const result = await uploadFile(req.file.buffer, filename, req.file.mimetype, uploadDir);
+      console.log(`[AUDIT] ✅ Subida exitosa: Archivo=${result.filename} (${req.file.size} bytes) | Storage=${result.storage}`);
+      res.json({ success: true, url: result.url, filename: result.filename });
+    } catch (uploadErr) {
+      console.error("[AUDIT] ❌ Error al guardar archivo:", uploadErr.message);
+      res.status(500).json({ error: uploadErr.message });
+    }
   });
 });
 

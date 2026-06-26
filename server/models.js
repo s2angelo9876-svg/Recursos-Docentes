@@ -11,31 +11,11 @@ export function defineModels(sequelize) {
   const Recurso = sequelize.define("Recurso", {
     titulo: { type: DataTypes.STRING, allowNull: false },
     area: { type: DataTypes.STRING, allowNull: false },
-    grados: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-      get() {
-        const raw = this.getDataValue("grados");
-        return raw ? JSON.parse(raw) : [];
-      },
-      set(val) {
-        this.setDataValue("grados", JSON.stringify(val));
-      }
-    },
+    grados: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
     tipo: { type: DataTypes.STRING, allowNull: false },
     desc: { type: DataTypes.TEXT, allowNull: false },
     url: { type: DataTypes.STRING, allowNull: true, defaultValue: "" },
-    contenidos: {
-      type: DataTypes.TEXT,
-      defaultValue: "[]",
-      get() {
-        const raw = this.getDataValue("contenidos");
-        return raw ? JSON.parse(raw) : [];
-      },
-      set(val) {
-        this.setDataValue("contenidos", JSON.stringify(val));
-      }
-    }
+    contenidos: { type: DataTypes.JSON, defaultValue: [] },
   });
 
   const Tutorial = sequelize.define("Tutorial", {

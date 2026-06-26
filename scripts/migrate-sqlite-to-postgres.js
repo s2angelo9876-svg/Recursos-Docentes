@@ -58,11 +58,39 @@ async function migrate() {
       { name: "Noticia", sqlite: sqliteModels.Noticia, postgres: postgresModels.Noticia },
     ];
 
+    function parseJsonField(value) {
+      if (typeof value === "string") {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value;
+        }
+      }
+      return value;
+    }
+
+    async function resetSequence(tableName) {
+      try {
+        await postgresSequelize.query(
+          `SELECT setval(pg_get_serial_sequence('"${tableName}"', 'id'), coalesce(max(id), 1), max(id) IS NOT NULL) FROM "${tableName}";`
+        );
+      } catch (err) {
+        console.warn(`⚠️  No se pudo actualizar la secuencia de ${tableName}: ${err.message}`);
+      }
+    }
+
     for (const { name, sqlite, postgres } of mappings) {
-      const rows = await sqlite.findAll({ raw: true });
-      if (rows.length > 0) {
-        await postgres.bulkCreate(rows, { validate: false });
-        console.log(`✅ ${name}: ${rows.length} registros migrados.`);
+      const rows = await sqlite.findAll();
+      const plainRows = rows.map((row) => {
+        const data = row.toJSON();
+        if (data.grados !== undefined) data.grados = parseJsonField(data.grados);
+        if (data.contenidos !== undefined) data.contenidos = parseJsonField(data.contenidos);
+        return data;
+      });
+      if (plainRows.length > 0) {
+        await postgres.bulkCreate(plainRows, { validate: false });
+        await resetSequence(name);
+        console.log(`✅ ${name}: ${plainRows.length} registros migrados.`);
       } else {
         console.log(`⚪ ${name}: sin registros para migrar.`);
       }

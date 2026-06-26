@@ -633,9 +633,9 @@ app.post("/api/import", authenticateToken, requireRole(["Administrador"]), async
     const { recursos, tutoriales, proyectos, noticias } = req.body;
     const tutorialesImport = tutoriales || proyectos || [];
 
-    await Recurso.destroy({ truncate: true });
-    await Tutorial.destroy({ truncate: true });
-    await Noticia.destroy({ truncate: true });
+    await Recurso.destroy({ where: {} });
+    await Tutorial.destroy({ where: {} });
+    await Noticia.destroy({ where: {} });
 
     if (recursos && recursos.length > 0) await Recurso.bulkCreate(recursos);
     if (tutorialesImport.length > 0) await Tutorial.bulkCreate(tutorialesImport);
@@ -750,7 +750,7 @@ const SEED_NOTICIAS = [
 
 sequelize.sync()
   .then(async () => {
-    console.log("🔋 Base de datos SQLite sincronizada.");
+    console.log("🔋 Base de datos sincronizada.");
 
     const userCount = await Usuario.count();
 
@@ -765,23 +765,6 @@ sequelize.sync()
       ]);
 
       console.log("👥 Usuario administrador único creado.");
-    }
-
-    // Migración one-off: proyectos legacy con URL de YouTube → tutoriales
-    try {
-      const [legacyRows] = await sequelize.query(
-        "SELECT titulo, area, desc, url, audiencia FROM Proyectos WHERE url IS NOT NULL AND url != '';"
-      );
-      const tutorialCount = await Tutorial.count();
-      if (legacyRows.length > 0 && tutorialCount === 0) {
-        const validTutorials = legacyRows.filter((row) => getYouTubeId(row.url));
-        if (validTutorials.length > 0) {
-          await Tutorial.bulkCreate(validTutorials);
-          console.log(`🎓 ${validTutorials.length} tutoriales migrados desde la tabla Proyectos.`);
-        }
-      }
-    } catch {
-      // La tabla Proyectos puede no existir en instalaciones nuevas; se ignora.
     }
 
     const seedData = loadSeedData();

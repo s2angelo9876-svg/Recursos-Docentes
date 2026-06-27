@@ -33,5 +33,19 @@ export function defineModels(sequelize) {
     autor: { type: DataTypes.STRING, allowNull: false },
   });
 
-  return { Usuario, Recurso, Tutorial, Noticia };
+  const AuditoriaSesion = sequelize.define("AuditoriaSesion", {
+    usuarioId: { type: DataTypes.INTEGER, allowNull: true },
+    usuarioNombre: { type: DataTypes.STRING, allowNull: true },
+    usuario: { type: DataTypes.STRING, allowNull: true },
+    rol: { type: DataTypes.STRING, allowNull: true },
+    accion: { type: DataTypes.STRING, allowNull: false },
+    entidad: { type: DataTypes.STRING, allowNull: true },
+    entidadId: { type: DataTypes.INTEGER, allowNull: true },
+    detalle: { type: DataTypes.TEXT, allowNull: true },
+    ip: { type: DataTypes.STRING, allowNull: true },
+    userAgent: { type: DataTypes.TEXT, allowNull: true },
+    exito: { type: DataTypes.BOOLEAN, defaultValue: true },
+  });
+
+  return { Usuario, Recurso, Tutorial, Noticia, AuditoriaSesion };
 }

@@ -7,10 +7,27 @@ import fs from "fs";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import { fileURLToPath } from "url";
 import { Sequelize } from "sequelize";
 import { defineModels } from "./server/models.js";
 import { uploadFile, deleteFile, isStorageEnabled } from "./server/services/storage.js";
+import logger from "./server/services/logger.js";
+import { validateBody } from "./server/middleware.js";
+import {
+  recursoSchema,
+  tutorialSchema,
+  noticiaSchema,
+  usuarioSchema,
+  passwordUpdateSchema,
+} from "./server/validators.js";
+import {
+  setAuditoriaModel,
+  registrarAuditoria,
+  auditoriaFromRequest,
+  getClientIp,
+  getUserAgent,
+} from "./server/services/auditoria.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,9 +38,26 @@ const SECRET_KEY = process.env.JWT_SECRET || "innova-bandera-secret-key-2026";
 const isProduction = process.env.NODE_ENV === "production";
 
 if (isProduction && !process.env.JWT_SECRET) {
-  console.error("❌ JWT_SECRET es obligatorio en producción. Defínalo en .env");
+  logger.error("❌ JWT_SECRET es obligatorio en producción. Defínalo en .env");
   process.exit(1);
 }
+
+// Security headers
+app.disable("x-powered-by");
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com"],
+      connectSrc: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
 
 // CORS & parse JSON
 app.use(cors({
@@ -34,12 +68,41 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// --- RATE LIMITERS ---
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isProduction ? 200 : 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiadas peticiones. Intente más tarde." },
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiadas subidas de archivos. Intente más tarde." },
+});
+
+const auditoriaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiadas consultas de auditoría. Intente más tarde." },
+});
+
+app.use("/api/", apiLimiter);
+app.use("/api/upload", uploadLimiter);
+app.use("/api/admin/auditoria", auditoriaLimiter);
+
 // Initialize database connection (PostgreSQL via DATABASE_URL or SQLite fallback)
 function createSequelizeInstance() {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (databaseUrl) {
-    console.log("🔌 Conectando a PostgreSQL (DATABASE_URL detectada).");
+    logger.info("🔌 Conectando a PostgreSQL (DATABASE_URL detectada).");
     return new Sequelize(databaseUrl, {
       dialect: "postgres",
       dialectOptions: {
@@ -58,7 +121,7 @@ function createSequelizeInstance() {
     });
   }
 
-  console.log("🔌 Conectando a SQLite (DATABASE_URL no definida).");
+  logger.info("🔌 Conectando a SQLite (DATABASE_URL no definida).");
   return new Sequelize({
     dialect: "sqlite",
     storage: process.env.DB_PATH || path.join(__dirname, "db", "innova.sqlite"),
@@ -77,7 +140,8 @@ app.use("/uploads", express.static(uploadDir));
 
 // --- SEQUELIZE SCHEMA DEFINITIONS ---
 
-const { Usuario, Recurso, Tutorial, Noticia } = defineModels(sequelize);
+const { Usuario, Recurso, Tutorial, Noticia, AuditoriaSesion } = defineModels(sequelize);
+setAuditoriaModel(AuditoriaSesion);
 
 // --- AUDITED AUTHENTICATION MIDDLEWARE ---
 
@@ -85,29 +149,34 @@ function authenticateToken(req, res, next) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
-  console.log(`\n--- [AUDIT] Petición entrante: ${req.method} ${req.path} ---`);
-  console.log(`[AUDIT] Cabecera Authorization: ${authHeader ? "SÍ" : "NO"}`);
-  console.log(`[AUDIT] Token (15 chars): ${token ? token.substring(0, 15) + "..." : "Nulo"}`);
+  logger.info(`[AUTH] Petición ${req.method} ${req.path}`, {
+    hasAuthHeader: Boolean(authHeader),
+    hasToken: Boolean(token),
+    ip: getClientIp(req),
+  });
 
   if (!token) {
-    console.log(`[AUDIT] ❌ Denegado: Token ausente en cabecera.`);
+    logger.info("[AUTH] Denegado: token ausente", { path: req.path, ip: getClientIp(req) });
     if (req.file) {
       fs.unlink(req.file.path, () => { });
-      console.log(`[AUDIT] Archivo subido temporal eliminado por falta de token.`);
+      logger.info("[AUTH] Archivo temporal eliminado por falta de token");
     }
     return res.status(401).json({ error: "Token de sesión no proporcionado." });
   }
 
   jwt.verify(token, SECRET_KEY, (err, decodedUser) => {
     if (err) {
-      console.log(`[AUDIT] ❌ Denegado: Falló validación JWT (${err.message})`);
+      logger.info(`[AUTH] Denegado: JWT inválido (${err.message})`, { path: req.path, ip: getClientIp(req) });
       if (req.file) {
         fs.unlink(req.file.path, () => { });
-        console.log(`[AUDIT] Archivo subido temporal eliminado por token inválido/expirado.`);
+        logger.info("[AUTH] Archivo temporal eliminado por token inválido/expirado");
       }
       return res.status(403).json({ error: "Token de sesión inválido o expirado." });
     }
-    console.log(`[AUDIT] ✅ Verificado: Usuario=${decodedUser.usuario} | Rol=${decodedUser.rol}`);
+    logger.info(`[AUTH] Verificado: usuario=${decodedUser.usuario}, rol=${decodedUser.rol}`, {
+      path: req.path,
+      ip: getClientIp(req),
+    });
     req.user = decodedUser;
     next();
   });
@@ -116,17 +185,27 @@ function authenticateToken(req, res, next) {
 function requireRole(roles) {
   return (req, res, next) => {
     const userRol = req.user ? req.user.rol : "Nulo";
-    console.log(`[AUDIT] Roles requeridos: ${JSON.stringify(roles)} | Rol de Usuario: ${userRol}`);
+    logger.info("[AUTH] Verificando roles", {
+      required: roles,
+      userRol,
+      path: req.path,
+      ip: getClientIp(req),
+    });
 
     if (!req.user || !roles.includes(req.user.rol)) {
-      console.log(`[AUDIT] ❌ Denegado: Rol no coincide con permisos requeridos.`);
+      logger.info("[AUTH] Denegado: rol no autorizado", {
+        required: roles,
+        userRol,
+        path: req.path,
+        ip: getClientIp(req),
+      });
       if (req.file) {
         fs.unlink(req.file.path, () => { });
-        console.log(`[AUDIT] Archivo subido temporal eliminado por falta de rol autorizado.`);
+        logger.info("[AUTH] Archivo temporal eliminado por falta de rol autorizado");
       }
       return res.status(403).json({ error: "No tienes permisos suficientes para esta acción." });
     }
-    console.log(`[AUDIT] ✅ Autorizado: Rol coincide con permisos.`);
+    logger.info("[AUTH] Autorizado", { userRol, path: req.path, ip: getClientIp(req) });
     next();
   };
 }
@@ -147,7 +226,11 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 function cleanFileName(originalName) {
-  return originalName.replace(/[^a-zA-Z0-9.-]/g, "_");
+  const name = path.basename(originalName || "archivo");
+  const ext = path.extname(name).toLowerCase();
+  let base = path.basename(name, ext).replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 100);
+  if (!base) base = "archivo";
+  return `${base}${ext}`;
 }
 
 function generateFileName(originalName) {
@@ -178,27 +261,43 @@ const loginLimiter = rateLimit({
   message: { success: false, error: "Demasiados intentos. Intente en 15 minutos." },
 });
 
-app.post("/api/auth/register", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.post("/api/auth/register", authenticateToken, requireRole(["Administrador"]), validateBody(usuarioSchema), async (req, res) => {
   try {
     const { nombre, usuario, contrasenia, contrasena, password, rol } = req.body;
     const passwordInput = contrasenia || contrasena || password;
 
-    if (!nombre || !usuario || !passwordInput || !rol) {
-      return res.status(400).json({ error: "Por favor, complete todos los campos obligatorios." });
-    }
-    if (passwordInput.length < 6) {
-      return res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres." });
-    }
-    if (!["Docente", "Invitado"].includes(rol)) {
-      return res.status(400).json({ error: "El rol solo puede ser Docente o Invitado." });
-    }
     const hash = bcrypt.hashSync(passwordInput, 10);
     const user = await Usuario.create({ nombre, usuario, contrasenia: hash, rol });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "USUARIO_CREADO",
+      entidad: "usuario",
+      entidadId: user.id,
+      detalle: `Usuario "${usuario}" creado con rol ${rol}`,
+      exito: true,
+    });
+
     res.status(201).json({ success: true, user: { id: user.id, usuario: user.usuario, rol: user.rol } });
   } catch (err) {
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user?.id,
+      usuarioNombre: req.user?.nombre,
+      usuario: req.user?.usuario,
+      rol: req.user?.rol,
+      accion: "USUARIO_CREADO",
+      entidad: "usuario",
+      detalle: `Error al crear usuario: ${err.message}`,
+      exito: false,
+    });
+
     if (err.name === "SequelizeUniqueConstraintError") {
       return res.status(400).json({ error: "El nombre de usuario ya está registrado." });
     }
+    logger.error("Error al registrar usuario", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
@@ -229,24 +328,31 @@ app.delete("/api/auth/users/:id", authenticateToken, requireRole(["Administrador
       return res.status(400).json({ error: "No se puede eliminar el usuario administrador principal." });
     }
     await user.destroy();
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "USUARIO_ELIMINADO",
+      entidad: "usuario",
+      entidadId: Number(id),
+      detalle: `Usuario "${user.usuario}" eliminado`,
+      exito: true,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    logger.error("Error al eliminar usuario", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put("/api/auth/users/:id/password", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.put("/api/auth/users/:id/password", authenticateToken, requireRole(["Administrador"]), validateBody(passwordUpdateSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { contrasenia, contrasena, password } = req.body;
     const passwordInput = contrasenia || contrasena || password;
-
-    if (!passwordInput) {
-      return res.status(400).json({ error: "La nueva contraseña es requerida." });
-    }
-    if (passwordInput.length < 6) {
-      return res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres." });
-    }
 
     const user = await Usuario.findByPk(id);
     if (!user) {
@@ -257,31 +363,73 @@ app.put("/api/auth/users/:id/password", authenticateToken, requireRole(["Adminis
     user.contrasenia = hash;
     await user.save();
 
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "CONTRASENA_ACTUALIZADA",
+      entidad: "usuario",
+      entidadId: Number(id),
+      detalle: `Contraseña actualizada para usuario "${user.usuario}"`,
+      exito: true,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    logger.error("Error al actualizar contraseña", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
 
 app.post("/api/auth/login", loginLimiter, async (req, res) => {
-  try {
-    const { usuario, contrasenia } = req.body;
+  const { usuario, contrasenia } = req.body;
+  const clientIp = getClientIp(req);
+  const userAgent = getUserAgent(req);
 
+  try {
     // 1. Validar campos obligatorios
     if (!usuario || !contrasenia) {
+      await registrarAuditoria({
+        usuario: usuario || null,
+        accion: "LOGIN_FALLIDO",
+        detalle: "Campos de usuario o contraseña vacíos",
+        ip: clientIp,
+        userAgent,
+        exito: false,
+      });
       return res.status(400).json({ success: false, error: "Usuario y contraseña requeridos." });
     }
 
-    // 2. Buscar en la base de datos SQLite
+    // 2. Buscar en la base de datos
     const user = await Usuario.findOne({ where: { usuario } });
 
     if (!user) {
+      await registrarAuditoria({
+        usuario,
+        accion: "LOGIN_FALLIDO",
+        detalle: "Usuario no registrado",
+        ip: clientIp,
+        userAgent,
+        exito: false,
+      });
       return res.status(401).json({ success: false, error: "El usuario no se encuentra registrado." });
     }
 
     // 3. Comparar contraseña usando bcrypt de forma síncrona
     const passwordValido = bcrypt.compareSync(contrasenia, user.contrasenia);
     if (!passwordValido) {
+      await registrarAuditoria({
+        usuarioId: user.id,
+        usuarioNombre: user.nombre,
+        usuario: user.usuario,
+        rol: user.rol,
+        accion: "LOGIN_FALLIDO",
+        detalle: "Contraseña incorrecta",
+        ip: clientIp,
+        userAgent,
+        exito: false,
+      });
       return res.status(401).json({ success: false, error: "La contraseña es incorrecta." });
     }
 
@@ -292,7 +440,20 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
       { expiresIn: "24h" }
     );
 
-    // 5. Responder estructuradamente al AppContext del frontend
+    // 5. Registrar auditoría de login exitoso
+    await registrarAuditoria({
+      usuarioId: user.id,
+      usuarioNombre: user.nombre,
+      usuario: user.usuario,
+      rol: user.rol,
+      accion: "LOGIN_EXITOSO",
+      detalle: "Inicio de sesión exitoso",
+      ip: clientIp,
+      userAgent,
+      exito: true,
+    });
+
+    // 6. Responder estructuradamente al AppContext del frontend
     return res.json({
       success: true,
       token: token,
@@ -304,8 +465,26 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error crítico en el login:", error);
+    logger.error("Error crítico en el login", { error: error.message, stack: error.stack, usuario, ip: clientIp });
     return res.status(500).json({ success: false, error: "Error en el servidor de base de datos." });
+  }
+});
+
+app.post("/api/auth/logout", authenticateToken, async (req, res) => {
+  try {
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "LOGOUT",
+      detalle: "Cierre de sesión",
+      exito: true,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error("Error al registrar logout", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -320,21 +499,49 @@ app.get("/api/recursos", async (req, res) => {
   }
 });
 
-app.post("/api/recursos", authenticateToken, requireRole(["Administrador", "Docente"]), async (req, res) => {
+app.post("/api/recursos", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(recursoSchema), async (req, res) => {
   try {
     const resource = await Recurso.create(req.body);
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "RECURSO_CREADO",
+      entidad: "recurso",
+      entidadId: resource.id,
+      detalle: `Recurso "${resource.titulo}" creado`,
+      exito: true,
+    });
+
     res.status(201).json(resource);
   } catch (err) {
+    logger.error("Error al crear recurso", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put("/api/recursos/:id", authenticateToken, requireRole(["Administrador", "Docente"]), async (req, res) => {
+app.put("/api/recursos/:id", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(recursoSchema), async (req, res) => {
   try {
     const { id } = req.params;
     await Recurso.update(req.body, { where: { id } });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "RECURSO_ACTUALIZADO",
+      entidad: "recurso",
+      entidadId: Number(id),
+      detalle: `Recurso "${req.body.titulo}" actualizado`,
+      exito: true,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    logger.error("Error al actualizar recurso", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
@@ -353,8 +560,22 @@ app.delete("/api/recursos/:id", authenticateToken, requireRole(["Administrador",
     }
 
     await resource.destroy();
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "RECURSO_ELIMINADO",
+      entidad: "recurso",
+      entidadId: Number(id),
+      detalle: `Recurso "${resource.titulo}" eliminado`,
+      exito: true,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    logger.error("Error al eliminar recurso", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
@@ -378,34 +599,18 @@ function getYouTubeId(url) {
 
 const VALID_AUDIENCIAS = ["docente", "estudiante", "ambos"];
 
-function validateTutorialPayload(body) {
-  const { titulo, area, desc, url, audiencia } = body;
-  if (!titulo || !area || !desc) {
-    return "Título, área y descripción son obligatorios.";
-  }
-  if (!url || !getYouTubeId(url)) {
-    return "Debe proporcionar un enlace válido de YouTube.";
-  }
-  if (audiencia && !VALID_AUDIENCIAS.includes(audiencia)) {
-    return "Audiencia inválida. Use: docente, estudiante o ambos.";
-  }
-  return null;
-}
-
 app.get("/api/tutoriales", async (req, res) => {
   try {
     const list = await Tutorial.findAll({ order: [["id", "DESC"]] });
     res.json(list);
   } catch (err) {
+    logger.error("Error al listar tutoriales", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/tutoriales", authenticateToken, requireRole(["Administrador", "Docente"]), async (req, res) => {
+app.post("/api/tutoriales", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(tutorialSchema), async (req, res) => {
   try {
-    const validationError = validateTutorialPayload(req.body);
-    if (validationError) return res.status(400).json({ error: validationError });
-
     const tutorial = await Tutorial.create({
       titulo: req.body.titulo,
       area: req.body.area,
@@ -413,17 +618,28 @@ app.post("/api/tutoriales", authenticateToken, requireRole(["Administrador", "Do
       url: req.body.url,
       audiencia: req.body.audiencia || "ambos",
     });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "TUTORIAL_CREADO",
+      entidad: "tutorial",
+      entidadId: tutorial.id,
+      detalle: `Tutorial "${tutorial.titulo}" creado`,
+      exito: true,
+    });
+
     res.status(201).json(tutorial);
   } catch (err) {
+    logger.error("Error al crear tutorial", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put("/api/tutoriales/:id", authenticateToken, requireRole(["Administrador", "Docente"]), async (req, res) => {
+app.put("/api/tutoriales/:id", authenticateToken, requireRole(["Administrador", "Docente"]), validateBody(tutorialSchema), async (req, res) => {
   try {
-    const validationError = validateTutorialPayload(req.body);
-    if (validationError) return res.status(400).json({ error: validationError });
-
     const { id } = req.params;
     await Tutorial.update({
       titulo: req.body.titulo,
@@ -432,8 +648,22 @@ app.put("/api/tutoriales/:id", authenticateToken, requireRole(["Administrador", 
       url: req.body.url,
       audiencia: req.body.audiencia || "ambos",
     }, { where: { id } });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "TUTORIAL_ACTUALIZADO",
+      entidad: "tutorial",
+      entidadId: Number(id),
+      detalle: `Tutorial "${req.body.titulo}" actualizado`,
+      exito: true,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    logger.error("Error al actualizar tutorial", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
@@ -441,9 +671,26 @@ app.put("/api/tutoriales/:id", authenticateToken, requireRole(["Administrador", 
 app.delete("/api/tutoriales/:id", authenticateToken, requireRole(["Administrador", "Docente"]), async (req, res) => {
   try {
     const { id } = req.params;
+    const tutorial = await Tutorial.findByPk(id);
+    if (!tutorial) return res.status(404).json({ error: "Tutorial no encontrado" });
+
     await Tutorial.destroy({ where: { id } });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "TUTORIAL_ELIMINADO",
+      entidad: "tutorial",
+      entidadId: Number(id),
+      detalle: `Tutorial "${tutorial.titulo}" eliminado`,
+      exito: true,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    logger.error("Error al eliminar tutorial", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
@@ -455,11 +702,12 @@ app.get("/api/noticias", async (req, res) => {
     const list = await Noticia.findAll({ order: [["id", "DESC"]] });
     res.json(list);
   } catch (err) {
+    logger.error("Error al listar noticias", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/noticias", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.post("/api/noticias", authenticateToken, requireRole(["Administrador"]), validateBody(noticiaSchema), async (req, res) => {
   try {
     const news = await Noticia.create({
       ...req.body,
@@ -469,18 +717,46 @@ app.post("/api/noticias", authenticateToken, requireRole(["Administrador"]), asy
         year: "numeric"
       })
     });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "NOTICIA_CREADA",
+      entidad: "noticia",
+      entidadId: news.id,
+      detalle: `Noticia "${news.titulo}" creada`,
+      exito: true,
+    });
+
     res.status(201).json(news);
   } catch (err) {
+    logger.error("Error al crear noticia", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
+app.put("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]), validateBody(noticiaSchema), async (req, res) => {
   try {
     const { id } = req.params;
     await Noticia.update(req.body, { where: { id } });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "NOTICIA_ACTUALIZADA",
+      entidad: "noticia",
+      entidadId: Number(id),
+      detalle: `Noticia "${req.body.titulo}" actualizada`,
+      exito: true,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    logger.error("Error al actualizar noticia", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });
@@ -488,9 +764,26 @@ app.put("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]), 
 app.delete("/api/noticias/:id", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
   try {
     const { id } = req.params;
+    const news = await Noticia.findByPk(id);
+    if (!news) return res.status(404).json({ error: "Noticia no encontrada" });
+
     await Noticia.destroy({ where: { id } });
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "NOTICIA_ELIMINADA",
+      entidad: "noticia",
+      entidadId: Number(id),
+      detalle: `Noticia "${news.titulo}" eliminada`,
+      exito: true,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    logger.error("Error al eliminar noticia", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
   }
 });

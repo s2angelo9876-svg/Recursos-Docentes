@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import Repositorio from "./Repositorio";
 import Tutoriales from "./Tutoriales";
 import Noticias from "./Noticias";
 import AdminModal from "./AdminModal";
+import AuditoriaPanel from "./AuditoriaPanel";
 
 const AREAS_CNEB = [
   "Matemática", "Comunicación", "Inglés", "Arte y Cultura",
@@ -40,6 +41,8 @@ export default function AdminPanel() {
   const [userError, setUserError] = useState("");
   const [userSuccess, setUserSuccess] = useState("");
   const [creatingUser, setCreatingUser] = useState(false);
+  const [importingExcel, setImportingExcel] = useState(false);
+  const excelInputRef = useRef(null);
 
   const fetchUsuarios = async () => {
     try {
@@ -96,6 +99,51 @@ export default function AdminPanel() {
       setUserError("Error de conexión al crear usuario.");
     } finally {
       setCreatingUser(false);
+    }
+  };
+
+  const handleExcelUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    e.target.value = "";
+
+    try {
+      setImportingExcel(true);
+      setUserError("");
+      setUserSuccess("");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/docentes/bulk-upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        let msg = `Carga masiva finalizada. Creados: ${data.insertedCount}`;
+        if (data.duplicateCount > 0) {
+          msg += `, Omitidos por duplicado: ${data.duplicateCount}`;
+        }
+        if (data.invalidCount > 0) {
+          msg += `, Omitidos por error: ${data.invalidCount}`;
+        }
+        setUserSuccess(msg);
+        fetchUsuarios();
+      } else {
+        setUserError(data.error || "Ocurrió un error al procesar el archivo Excel.");
+      }
+    } catch (err) {
+      setUserError("Error de conexión al cargar el archivo Excel.");
+      console.error(err);
+    } finally {
+      setImportingExcel(false);
     }
   };
 
@@ -463,10 +511,21 @@ export default function AdminPanel() {
         >
           <i className="fas fa-users mr-1.5"></i> Usuarios
         </button>
+        {currentUser?.rol === "Administrador" && (
+          <button
+            onClick={() => setActiveSubTab("auditoria")}
+            className={`pb-3 px-4 font-black uppercase text-xs tracking-wider transition-all border-b-2 -mb-px cursor-pointer ${activeSubTab === "auditoria"
+              ? "border-primary dark:border-dark-accent text-primary dark:text-dark-accent-text"
+              : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              }`}
+          >
+            <i className="fas fa-shield-alt mr-1.5"></i> Auditoría
+          </button>
+        )}
       </div>
 
       {/* Adding buttons */}
-      {activeSubTab !== "usuarios" && (
+      {activeSubTab !== "usuarios" && activeSubTab !== "auditoria" && (
         <div className="flex justify-end">
           <button
             onClick={() => handleOpenAdd(activeSubTab)}
@@ -498,6 +557,7 @@ export default function AdminPanel() {
             onEditClick={(item) => handleOpenEdit("noticias", item)}
           />
         )}
+        {activeSubTab === "auditoria" && <AuditoriaPanel />}
         {activeSubTab === "usuarios" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Form Column */}
@@ -592,6 +652,33 @@ export default function AdminPanel() {
                     <><i className="fas fa-spinner fa-spin"></i> Registrando...</>
                   ) : (
                     <><i className="fas fa-plus-circle"></i> Registrar Docente</>
+                  )}
+                </button>
+
+                <div className="relative flex py-2 items-center">
+                  <div className="flex-grow border-t border-gray-150 dark:border-dark-border"></div>
+                  <span className="flex-shrink mx-3 text-[10px] text-gray-400 dark:text-gray-550 font-bold uppercase tracking-wider">o</span>
+                  <div className="flex-grow border-t border-gray-150 dark:border-dark-border"></div>
+                </div>
+
+                <input
+                  type="file"
+                  ref={excelInputRef}
+                  onChange={handleExcelUpload}
+                  accept=".xlsx, .csv"
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  disabled={importingExcel}
+                  onClick={() => excelInputRef.current?.click()}
+                  className="w-full py-2.5 bg-white dark:bg-dark-card border border-gray-250 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-border/20 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {importingExcel ? (
+                    <><i className="fas fa-spinner fa-spin text-primary dark:text-dark-accent"></i> Procesando...</>
+                  ) : (
+                    <><i className="fas fa-file-excel text-emerald-600"></i> Importar desde Excel</>
                   )}
                 </button>
               </form>

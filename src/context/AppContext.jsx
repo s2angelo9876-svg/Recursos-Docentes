@@ -42,19 +42,41 @@ export function AppContextProvider({ children }) {
     }
   }, [darkMode]);
 
-  // --- FETCH CENTRAL DATABASE FROM EXPRESS API ---
-  const loadDatabase = async () => {
-    try {
-      const [resRec, resTut, resNot] = await Promise.all([
-        fetch("/api/recursos").then((r) => r.ok ? r.json() : []),
-        fetch("/api/tutoriales").then((r) => r.ok ? r.json() : []),
-        fetch("/api/noticias").then((r) => r.ok ? r.json() : [])
-      ]);
-      setRecursos(resRec);
-      setTutoriales(resTut);
-      setNoticias(resNot);
-    } catch (err) {
-      console.error("Error al cargar la base de datos de la API local:", err);
+  // --- FETCH CENTRAL DATABASE FROM EXPRESS API (con reintentos) ---
+  const loadDatabase = async ({ retries = 5, delayMs = 1500 } = {}) => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const [resRec, resTut, resNot] = await Promise.all([
+          fetch("/api/recursos"),
+          fetch("/api/tutoriales"),
+          fetch("/api/noticias"),
+        ]);
+
+        // Si el servidor aún no está listo (503) reintentamos
+        if (resRec.status === 503 || resTut.status === 503 || resNot.status === 503) {
+          if (attempt < retries) {
+            await new Promise((r) => setTimeout(r, delayMs * attempt));
+            continue;
+          }
+          return; // Se agotaron reintentos, quedamos con arrays vacíos
+        }
+
+        const [rec, tut, not] = await Promise.all([
+          resRec.ok ? resRec.json() : [],
+          resTut.ok ? resTut.json() : [],
+          resNot.ok ? resNot.json() : [],
+        ]);
+
+        setRecursos(rec);
+        setTutoriales(tut);
+        setNoticias(not);
+        return; // éxito
+      } catch {
+        // ECONNREFUSED u otro error de red — reintentamos
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, delayMs * attempt));
+        }
+      }
     }
   };
 
@@ -62,6 +84,7 @@ export function AppContextProvider({ children }) {
   useEffect(() => {
     loadDatabase();
   }, [token]);
+
 
   // --- AUTHENTICATION METHODS ---
   const login = async (usuario, contrasenia) => {

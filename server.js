@@ -9,8 +9,9 @@ import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { fileURLToPath } from "url";
-import { Sequelize } from "sequelize";
+import { Sequelize, Op } from "sequelize";
 import { defineModels } from "./server/models.js";
+import * as XLSX from "xlsx";
 import { uploadFile, deleteFile, isStorageEnabled } from "./server/services/storage.js";
 import logger from "./server/services/logger.js";
 import { validateBody } from "./server/middleware.js";
@@ -379,6 +380,141 @@ app.put("/api/auth/users/:id/password", authenticateToken, requireRole(["Adminis
   } catch (err) {
     logger.error("Error al actualizar contraseña", { error: err.message, stack: err.stack });
     res.status(500).json({ error: err.message });
+  }
+});
+
+const uploadExcel = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+app.post("/api/docentes/bulk-upload", authenticateToken, requireRole(["Administrador"]), uploadExcel.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No se ha proporcionado ningún archivo." });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    
+    const rawRows = XLSX.utils.sheet_to_json(worksheet);
+
+    if (rawRows.length === 0) {
+      return res.status(400).json({ error: "El archivo Excel está vacío o no contiene filas válidas." });
+    }
+
+    const createdUsers = [];
+    const duplicateUsers = [];
+    const invalidRows = [];
+
+    for (let i = 0; i < rawRows.length; i++) {
+      const row = rawRows[i];
+      
+      const normalizedRow = {};
+      for (const key of Object.keys(row)) {
+        const normKey = key.trim().toUpperCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        normalizedRow[normKey] = row[key];
+      }
+
+      const nombre = normalizedRow["NOMBRES Y APELLIDOS"] ? String(normalizedRow["NOMBRES Y APELLIDOS"]).trim() : null;
+      const dni = normalizedRow["DNI"] ? String(normalizedRow["DNI"]).trim() : null;
+      const password = normalizedRow["PASSWORD"] ? String(normalizedRow["PASSWORD"]).trim() : null;
+      const cargo = normalizedRow["CARGO"] ? String(normalizedRow["CARGO"]).trim() : null;
+      const condicion = normalizedRow["CONDICION"] ? String(normalizedRow["CONDICION"]).trim() : null;
+      const correo = normalizedRow["CORREO ELECTRONICO"] ? String(normalizedRow["CORREO ELECTRONICO"]).trim() : null;
+      const celular = (normalizedRow["N° CELULAR"] || normalizedRow["N CELULAR"] || normalizedRow["CELULAR"] || normalizedRow["N°CELULAR"]) 
+        ? String(normalizedRow["N° CELULAR"] || normalizedRow["N CELULAR"] || normalizedRow["CELULAR"] || normalizedRow["N°CELULAR"]).trim() 
+        : null;
+      const area = normalizedRow["AREA"] ? String(normalizedRow["AREA"]).trim() : null;
+
+      if (!nombre || !dni || !password) {
+        invalidRows.push({
+          rowNumber: i + 2,
+          error: "Faltan campos obligatorios (NOMBRES Y APELLIDOS, DNI, o PASSWORD)."
+        });
+        continue;
+      }
+
+      if (dni.length < 3) {
+        invalidRows.push({
+          rowNumber: i + 2,
+          error: "El DNI (usuario) debe tener al menos 3 caracteres."
+        });
+        continue;
+      }
+
+      if (password.length < 6) {
+        invalidRows.push({
+          rowNumber: i + 2,
+          error: "La contraseña (password) debe tener al menos 6 caracteres."
+        });
+        continue;
+      }
+
+      const orConditions = [{ usuario: dni }];
+      if (correo) {
+        orConditions.push({ correo: correo });
+      }
+
+      const existingUser = await Usuario.findOne({
+        where: {
+          [Op.or]: orConditions
+        }
+      });
+
+      if (existingUser) {
+        duplicateUsers.push({
+          rowNumber: i + 2,
+          dni,
+          correo,
+          reason: existingUser.usuario === dni ? "El DNI ya está registrado como usuario." : "El correo electrónico ya existe."
+        });
+        continue;
+      }
+
+      const hash = bcrypt.hashSync(password, 10);
+
+      const newUser = await Usuario.create({
+        nombre,
+        usuario: dni,
+        contrasenia: hash,
+        rol: "Docente",
+        cargo,
+        condicion,
+        correo,
+        celular,
+        area
+      });
+
+      createdUsers.push(newUser);
+    }
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "USUARIOS_CARGA_MASIVA",
+      entidad: "usuario",
+      detalle: `Carga masiva: creados ${createdUsers.length}, duplicados omitidos ${duplicateUsers.length}, inválidos omitidos ${invalidRows.length}`,
+      exito: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Carga masiva finalizada con éxito. Creados: ${createdUsers.length}, Duplicados: ${duplicateUsers.length}, Erróneos: ${invalidRows.length}.`,
+      insertedCount: createdUsers.length,
+      duplicateCount: duplicateUsers.length,
+      invalidCount: invalidRows.length,
+      duplicates: duplicateUsers,
+      invalidRows: invalidRows
+    });
+
+  } catch (err) {
+    logger.error("Error en carga masiva de docentes", { error: err.message, stack: err.stack });
+    res.status(500).json({ error: `Error en el servidor al procesar el archivo: ${err.message}` });
   }
 });
 
@@ -901,6 +1037,156 @@ app.post("/api/import", authenticateToken, requireRole(["Administrador"]), async
   }
 });
 
+// --- AUDITORÍA ENDPOINTS (Paso 8 + 10) ---
+
+app.get("/api/admin/auditoria", authenticateToken, requireRole(["Administrador"]), auditoriaLimiter, async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      accion,
+      usuario,
+      exito,
+      desde,
+      hasta,
+    } = req.query;
+
+    const where = {};
+    if (accion) where.accion = accion;
+    if (usuario) where.usuario = { [Op.like]: `%${usuario}%` };
+    if (exito !== undefined && exito !== "") where.exito = exito === "true";
+    if (desde || hasta) {
+      where.createdAt = {};
+      if (desde) where.createdAt[Op.gte] = new Date(desde);
+      if (hasta) {
+        const hastaDate = new Date(hasta);
+        hastaDate.setHours(23, 59, 59, 999);
+        where.createdAt[Op.lte] = hastaDate;
+      }
+    }
+
+    const offset = (Number(page) - 1) * Number(limit);
+    const { count, rows } = await AuditoriaSesion.findAndCountAll({
+      where,
+      order: [["createdAt", "DESC"]],
+      limit: Number(limit),
+      offset,
+    });
+
+    res.json({
+      total: count,
+      page: Number(page),
+      pages: Math.ceil(count / Number(limit)),
+      data: rows,
+    });
+  } catch (err) {
+    logger.error("Error al listar auditoría", { error: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/admin/auditoria/stats", authenticateToken, requireRole(["Administrador"]), auditoriaLimiter, async (req, res) => {
+  try {
+    const { desde, hasta } = req.query;
+    const where = {};
+    if (desde || hasta) {
+      where.createdAt = {};
+      if (desde) where.createdAt[Op.gte] = new Date(desde);
+      if (hasta) {
+        const hastaDate = new Date(hasta);
+        hastaDate.setHours(23, 59, 59, 999);
+        where.createdAt[Op.lte] = hastaDate;
+      }
+    }
+
+    const [total, exitosos, fallidos, porAccion] = await Promise.all([
+      AuditoriaSesion.count({ where }),
+      AuditoriaSesion.count({ where: { ...where, exito: true } }),
+      AuditoriaSesion.count({ where: { ...where, exito: false } }),
+      AuditoriaSesion.findAll({
+        where,
+        attributes: [
+          "accion",
+          [sequelize.fn("COUNT", sequelize.col("accion")), "total"],
+        ],
+        group: ["accion"],
+        order: [[sequelize.literal("total"), "DESC"]],
+        raw: true,
+      }),
+    ]);
+
+    res.json({ total, exitosos, fallidos, porAccion });
+  } catch (err) {
+    logger.error("Error al obtener estadísticas de auditoría", { error: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/admin/auditoria/export-csv", authenticateToken, requireRole(["Administrador"]), auditoriaLimiter, async (req, res) => {
+  try {
+    const { desde, hasta, accion, usuario } = req.query;
+    const where = {};
+    if (accion) where.accion = accion;
+    if (usuario) where.usuario = { [Op.like]: `%${usuario}%` };
+    if (desde || hasta) {
+      where.createdAt = {};
+      if (desde) where.createdAt[Op.gte] = new Date(desde);
+      if (hasta) {
+        const hastaDate = new Date(hasta);
+        hastaDate.setHours(23, 59, 59, 999);
+        where.createdAt[Op.lte] = hastaDate;
+      }
+    }
+
+    const rows = await AuditoriaSesion.findAll({
+      where,
+      order: [["createdAt", "DESC"]],
+      limit: 10000,
+      raw: true,
+    });
+
+    const escape = (v) => {
+      if (v === null || v === undefined) return "";
+      const s = String(v).replace(/"/g, '""');
+      return `"${s}"`;
+    };
+
+    const headers = ["ID", "Fecha", "Accion", "Usuario", "Rol", "Entidad", "EntidadID", "Detalle", "IP", "Exito"];
+    const csvRows = rows.map((r) => [
+      r.id,
+      escape(new Date(r.createdAt).toISOString()),
+      escape(r.accion),
+      escape(r.usuario),
+      escape(r.rol),
+      escape(r.entidad),
+      r.entidadId ?? "",
+      escape(r.detalle),
+      escape(r.ip),
+      r.exito ? "SI" : "NO",
+    ].join(","));
+
+    const csv = "\uFEFF" + [headers.join(","), ...csvRows].join("\n");
+    const filename = `auditoria_${new Date().toISOString().split("T")[0]}.csv`;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(csv);
+
+    await auditoriaFromRequest(req, {
+      usuarioId: req.user.id,
+      usuarioNombre: req.user.nombre,
+      usuario: req.user.usuario,
+      rol: req.user.rol,
+      accion: "AUDITORIA_EXPORTADA",
+      detalle: `Exportación CSV de auditoría: ${rows.length} registros`,
+      exito: true,
+    });
+  } catch (err) {
+    logger.error("Error al exportar auditoría", { error: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- PRODUCTION: serve Vite build ---
 if (isProduction) {
   const distPath = path.join(__dirname, "dist");
@@ -1002,7 +1288,7 @@ const SEED_NOTICIAS = [
   { fecha: "10 Jun 2026", titulo: "Inauguración del Repositorio Digital Innova Bandera", desc: "Lanzamos de manera oficial el nuevo centro de recursos digitales para la innovación pedagógica en el aula.", autor: "Dirección Académica" }
 ];
 
-sequelize.sync()
+sequelize.sync({ alter: true })
   .then(async () => {
     console.log("🔋 Base de datos sincronizada.");
 

@@ -6,6 +6,11 @@ export function defineModels(sequelize) {
     usuario: { type: DataTypes.STRING, allowNull: false, unique: true },
     contrasenia: { type: DataTypes.STRING, allowNull: false },
     rol: { type: DataTypes.STRING, allowNull: false }, // "Administrador", "Docente", "Invitado"
+    cargo: { type: DataTypes.STRING, allowNull: true },
+    condicion: { type: DataTypes.STRING, allowNull: true },
+    correo: { type: DataTypes.STRING, allowNull: true },
+    celular: { type: DataTypes.STRING, allowNull: true },
+    area: { type: DataTypes.STRING, allowNull: true },
   });
 
   const Recurso = sequelize.define("Recurso", {

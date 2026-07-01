@@ -1,3 +1,6 @@
+console.log("🚀 [DEBUG CRÍTICO] ¡El archivo server.js SÍ se está ejecutando en Render!");
+// ... todo el resto de tus imports y código actual abajo
+
 import "dotenv/config";
 import express from "express";
 import cors from "cors";

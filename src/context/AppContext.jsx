@@ -28,6 +28,8 @@ export function AppContextProvider({ children }) {
     return local ? JSON.parse(local) : null;
   });
 
+  const [tutorialAccess, setTutorialAccess] = useState(null);
+
   // --- SYNC LOCAL CLIENT CONFIG ---
   useEffect(() => {
     localStorage.setItem("innova_favoritos", JSON.stringify(favoritos));
@@ -410,6 +412,8 @@ export function AppContextProvider({ children }) {
         deleteNoticia,
         exportData,
         importData,
+        tutorialAccess,
+        setTutorialAccess,
       }}
     >
       {children}

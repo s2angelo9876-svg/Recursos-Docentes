@@ -128,18 +128,10 @@ function AccessSelector({ onSelect }) {
 }
 
 export default function Tutoriales({ isAdminMode = false, onEditClick = null, onDeleteClick = null }) {
-  const { tutoriales, deleteTutorial } = useApp();
+  const { tutoriales, deleteTutorial, tutorialAccess, setTutorialAccess } = useApp();
   const [busqueda, setBusqueda] = useState("");
-  const [accessType, setAccessType] = useState(() => {
-    if (isAdminMode) return null;
-    return localStorage.getItem("innova_tutorial_access") || null;
-  });
-
-  useEffect(() => {
-    if (!isAdminMode && accessType) {
-      localStorage.setItem("innova_tutorial_access", accessType);
-    }
-  }, [accessType, isAdminMode]);
+  const accessType = isAdminMode ? null : tutorialAccess;
+  const setAccessType = setTutorialAccess;
 
   const tutorialesFiltrados = useMemo(() => {
     return tutoriales.filter((p) => {

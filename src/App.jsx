@@ -79,8 +79,8 @@ function AppContent() {
   const closeCms = () => setCmsModal({ open: false, type: "recursos", item: null });
 
   const canAddInSection = (cmsType) => {
-    if (cmsType === "noticias") return isAdmin;
-    if (cmsType === "recursos" || cmsType === "tutoriales") return canEditRecursosTutoriales;
+    if (cmsType === "noticias" || cmsType === "tutoriales") return isAdmin;
+    if (cmsType === "recursos") return canEditRecursosTutoriales;
     return false;
   };
 
@@ -183,7 +183,7 @@ function AppContent() {
                   cmsType="tutoriales"
                 />
                 <Tutoriales
-                  isAdminMode={canEditRecursosTutoriales}
+                  isAdminMode={isAdmin}
                   onEditClick={(item) => openCmsEdit("tutoriales", item)}
                   onDeleteClick={(id) => { if (window.confirm("¿Eliminar este tutorial?")) deleteTutorial(id); }}
                 />

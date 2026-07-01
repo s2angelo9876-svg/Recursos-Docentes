@@ -53,16 +53,17 @@ export default function Hero({ setActiveTab }) {
         <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-400/15 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[200px] bg-white/3 rounded-full blur-[80px] pointer-events-none" />
 
-        <div className="relative z-10 max-w-2xl text-left">
+        <div className="relative z-10 max-w-2xl mx-auto text-center flex flex-col items-center">
           <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight leading-tight uppercase drop-shadow-lg">
-            Bienvenidos a Innova Bandera{"2026 "}
-            <span className="text-red-400 block md:inline italic">Aula.</span>
+            Bienvenidos a Innova Bandera
+            <br />
+            <span className="text-red-400 italic">2026</span>
           </h2>
-          <p className="text-blue-100/75 dark:text-gray-400 text-sm md:text-base mb-8 font-medium max-w-lg leading-relaxed">
+          <p className="text-blue-100/75 dark:text-gray-400 text-sm md:text-base mb-8 font-medium max-w-lg mx-auto leading-relaxed">
             Repositorio de recursos tecnológicos, evidencias fotográficas y en video, tutoriales, noticias y experiencias exitosas. Dirigido a docentes y estudiantes.
           </p>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap justify-center gap-3">
             <button
               onClick={() => setActiveTab("recursos")}
               className="bg-white/10 hover:bg-red-600 text-white hover:text-white border border-white/30 px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all duration-300 shadow-lg shadow-black/20 active:scale-95 group"

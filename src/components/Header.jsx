@@ -26,9 +26,11 @@ export default function Header({ activeTab, setActiveTab }) {
 
         {/* Brand */}
         <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setActiveTab("portada")}>
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-blue-800 dark:from-dark-accent dark:to-blue-700 text-white flex items-center justify-center font-black text-sm shadow-md shadow-primary/30">
-            BP
-          </div>
+          <img 
+            src="/Img logo AIP.jpeg" 
+            alt="Logo AIP" 
+            className="h-9 w-9 object-cover rounded-xl shadow-md"
+          />
           <div className="text-left hidden sm:block">
             <h1 className="text-sm font-black tracking-tight uppercase text-gray-900 dark:text-white leading-none">
               Innova Bandera

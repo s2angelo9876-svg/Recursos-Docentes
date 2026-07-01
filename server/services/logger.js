@@ -29,6 +29,15 @@ const logger = winston.createLogger({
     }),
   ],
   exceptionHandlers: [
+    new winston.transports.Console({
+      format: combine(
+        colorize(),
+        printf(({ level, message, timestamp: ts, ...metadata }) => {
+          const meta = Object.keys(metadata).length ? JSON.stringify(metadata, null, 2) : "";
+          return `${ts} [${level}]: ${message} ${meta}`;
+        })
+      ),
+    }),
     new DailyRotateFile({
       filename: "logs/exceptions-%DATE%.log",
       datePattern: "YYYY-MM-DD",
@@ -37,6 +46,15 @@ const logger = winston.createLogger({
     }),
   ],
   rejectionHandlers: [
+    new winston.transports.Console({
+      format: combine(
+        colorize(),
+        printf(({ level, message, timestamp: ts, ...metadata }) => {
+          const meta = Object.keys(metadata).length ? JSON.stringify(metadata, null, 2) : "";
+          return `${ts} [${level}]: ${message} ${meta}`;
+        })
+      ),
+    }),
     new DailyRotateFile({
       filename: "logs/rejections-%DATE%.log",
       datePattern: "YYYY-MM-DD",

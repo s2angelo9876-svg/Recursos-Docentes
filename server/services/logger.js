@@ -46,18 +46,16 @@ const logger = winston.createLogger({
   ],
 });
 
-if (process.env.NODE_ENV !== "production") {
-  logger.add(
-    new winston.transports.Console({
-      format: combine(
-        colorize(),
-        printf(({ level, message, timestamp: ts, ...metadata }) => {
-          const meta = Object.keys(metadata).length ? JSON.stringify(metadata, null, 2) : "";
-          return `${ts} [${level}]: ${message} ${meta}`;
-        })
-      ),
-    })
-  );
-}
+logger.add(
+  new winston.transports.Console({
+    format: combine(
+      colorize(),
+      printf(({ level, message, timestamp: ts, ...metadata }) => {
+        const meta = Object.keys(metadata).length ? JSON.stringify(metadata, null, 2) : "";
+        return `${ts} [${level}]: ${message} ${meta}`;
+      })
+    ),
+  })
+);
 
 export default logger;

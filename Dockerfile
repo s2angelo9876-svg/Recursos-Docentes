@@ -22,15 +22,15 @@ COPY server.js db.json ./
 COPY server ./server
 COPY scripts ./scripts
 
-# Ensure volume directories exist
+# Asegurar que existan las carpetas
 RUN mkdir -p uploads backups db
 
-# Set env variables
-ENV PORT=5000
+# Variables de entorno para PRODUCCIÓN
+ENV PORT=10000
 ENV NODE_ENV=production
 ENV DB_PATH=/app/db/innova.sqlite
 
-# ... (todos tus pasos anteriores de COPY y RUN)
-
+# Exponer el mismo puerto configurado arriba
 EXPOSE 10000
+
 CMD ["node", "server.js"]

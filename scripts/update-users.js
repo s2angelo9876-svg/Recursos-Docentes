@@ -6,7 +6,7 @@ const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
   console.error("DATABASE_URL no definida en .env");
-  process.exit(1);
+  setTimeout(() => process.exit(1), 1000);
 }
 
 const sequelize = new Sequelize(databaseUrl, {

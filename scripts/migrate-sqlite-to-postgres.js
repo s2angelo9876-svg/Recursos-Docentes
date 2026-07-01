@@ -12,7 +12,7 @@ const dbPath = process.env.DB_PATH || path.join(__dirname, "..", "db", "innova.s
 
 if (!databaseUrl) {
   console.error("❌ DATABASE_URL no está definida. Define la URL de conexión a PostgreSQL en .env");
-  process.exit(1);
+  setTimeout(() => process.exit(1), 1000);
 }
 
 // SQLite source
@@ -100,7 +100,7 @@ async function migrate() {
   } catch (err) {
     console.error("❌ Error durante la migración:", err.message);
     console.error(err.stack);
-    process.exit(1);
+    setTimeout(() => process.exit(1), 1000);
   } finally {
     await sqliteSequelize.close();
     await postgresSequelize.close();

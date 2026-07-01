@@ -30,6 +30,7 @@ ENV PORT=5000
 ENV NODE_ENV=production
 ENV DB_PATH=/app/db/innova.sqlite
 
-EXPOSE 5000
+# ... (todos tus pasos anteriores de COPY y RUN)
 
+EXPOSE 10000
 CMD ["node", "server.js"]

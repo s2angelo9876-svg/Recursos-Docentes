@@ -40,7 +40,8 @@ const isProduction = process.env.NODE_ENV === "production";
 
 if (isProduction && !process.env.JWT_SECRET) {
   logger.error("❌ JWT_SECRET es obligatorio en producción. Defínalo en .env");
-  process.exit(1);
+  // Le damos 1 segundo al logger para enviar el texto antes de salir
+  setTimeout(() => process.exit(1), 1000);
 }
 
 // Security headers
@@ -397,7 +398,7 @@ app.post("/api/docentes/bulk-upload", authenticateToken, requireRole(["Administr
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    
+
     const rawRows = XLSX.utils.sheet_to_json(worksheet);
 
     if (rawRows.length === 0) {
@@ -410,7 +411,7 @@ app.post("/api/docentes/bulk-upload", authenticateToken, requireRole(["Administr
 
     for (let i = 0; i < rawRows.length; i++) {
       const row = rawRows[i];
-      
+
       const normalizedRow = {};
       for (const key of Object.keys(row)) {
         const normKey = key.trim().toUpperCase()
@@ -424,8 +425,8 @@ app.post("/api/docentes/bulk-upload", authenticateToken, requireRole(["Administr
       const cargo = normalizedRow["CARGO"] ? String(normalizedRow["CARGO"]).trim() : null;
       const condicion = normalizedRow["CONDICION"] ? String(normalizedRow["CONDICION"]).trim() : null;
       const correo = normalizedRow["CORREO ELECTRONICO"] ? String(normalizedRow["CORREO ELECTRONICO"]).trim() : null;
-      const celular = (normalizedRow["N° CELULAR"] || normalizedRow["N CELULAR"] || normalizedRow["CELULAR"] || normalizedRow["N°CELULAR"]) 
-        ? String(normalizedRow["N° CELULAR"] || normalizedRow["N CELULAR"] || normalizedRow["CELULAR"] || normalizedRow["N°CELULAR"]).trim() 
+      const celular = (normalizedRow["N° CELULAR"] || normalizedRow["N CELULAR"] || normalizedRow["CELULAR"] || normalizedRow["N°CELULAR"])
+        ? String(normalizedRow["N° CELULAR"] || normalizedRow["N CELULAR"] || normalizedRow["CELULAR"] || normalizedRow["N°CELULAR"]).trim()
         : null;
       const area = normalizedRow["AREA"] ? String(normalizedRow["AREA"]).trim() : null;
 

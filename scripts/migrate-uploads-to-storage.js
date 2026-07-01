@@ -15,7 +15,7 @@ const dbPath = process.env.DB_PATH || path.join(__dirname, "..", "db", "innova.s
 
 if (!isStorageEnabled()) {
   console.error("❌ SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY deben estar definidos en .env");
-  process.exit(1);
+  setTimeout(() => process.exit(1), 1000);
 }
 
 let sequelize;
@@ -108,7 +108,7 @@ async function migrateUploads() {
   } catch (err) {
     console.error("❌ Error durante la migración de archivos:", err.message);
     console.error(err.stack);
-    process.exit(1);
+    setTimeout(() => process.exit(1), 1000);
   } finally {
     await sequelize.close();
   }

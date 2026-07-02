@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { API_BASE } from "../utils/api.js";
 
 const AppContext = createContext();
 
@@ -49,9 +50,9 @@ export function AppContextProvider({ children }) {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const [resRec, resTut, resNot] = await Promise.all([
-          fetch("/api/recursos"),
-          fetch("/api/tutoriales"),
-          fetch("/api/noticias"),
+          fetch(`${API_BASE}/api/recursos`),
+          fetch(`${API_BASE}/api/tutoriales`),
+          fetch(`${API_BASE}/api/noticias`),
         ]);
 
         // Si el servidor aún no está listo (503) reintentamos
@@ -91,7 +92,7 @@ export function AppContextProvider({ children }) {
   // --- AUTHENTICATION METHODS ---
   const login = async (usuario, contrasenia) => {
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ usuario, contrasenia })
@@ -115,7 +116,7 @@ export function AppContextProvider({ children }) {
 
   const register = async (nombre, usuario, contrasenia, rol) => {
     try {
-      const response = await fetch("/api/auth/register", {
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -184,7 +185,7 @@ export function AppContextProvider({ children }) {
   // --- CRUD ACTIONS FOR RECURSOS ---
   const addRecurso = async (item) => {
     try {
-      const response = await fetch("/api/recursos", {
+      const response = await fetch(`${API_BASE}/api/recursos`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(item),
@@ -202,7 +203,7 @@ export function AppContextProvider({ children }) {
 
   const updateRecurso = async (id, updatedItem) => {
     try {
-      const response = await fetch(`/api/recursos/${id}`, {
+      const response = await fetch(`${API_BASE}/api/recursos/${id}`, {
         method: "PUT",
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedItem),
@@ -221,7 +222,7 @@ export function AppContextProvider({ children }) {
 
   const deleteRecurso = async (id) => {
     try {
-      const response = await fetch(`/api/recursos/${id}`, {
+      const response = await fetch(`${API_BASE}/api/recursos/${id}`, {
         method: "DELETE",
         headers: getAuthHeaders()
       });
@@ -245,7 +246,7 @@ export function AppContextProvider({ children }) {
   // --- CRUD ACTIONS FOR TUTORIALES ---
   const addTutorial = async (item) => {
     try {
-      const response = await fetch("/api/tutoriales", {
+      const response = await fetch(`${API_BASE}/api/tutoriales`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(item),
@@ -263,7 +264,7 @@ export function AppContextProvider({ children }) {
 
   const updateTutorial = async (id, updatedItem) => {
     try {
-      const response = await fetch(`/api/tutoriales/${id}`, {
+      const response = await fetch(`${API_BASE}/api/tutoriales/${id}`, {
         method: "PUT",
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedItem),
@@ -282,7 +283,7 @@ export function AppContextProvider({ children }) {
 
   const deleteTutorial = async (id) => {
     try {
-      const response = await fetch(`/api/tutoriales/${id}`, {
+      const response = await fetch(`${API_BASE}/api/tutoriales/${id}`, {
         method: "DELETE",
         headers: getAuthHeaders()
       });
@@ -299,7 +300,7 @@ export function AppContextProvider({ children }) {
   // --- CRUD ACTIONS FOR NOTICIAS ---
   const addNoticia = async (item) => {
     try {
-      const response = await fetch("/api/noticias", {
+      const response = await fetch(`${API_BASE}/api/noticias`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(item),
@@ -317,7 +318,7 @@ export function AppContextProvider({ children }) {
 
   const updateNoticia = async (id, updatedItem) => {
     try {
-      const response = await fetch(`/api/noticias/${id}`, {
+      const response = await fetch(`${API_BASE}/api/noticias/${id}`, {
         method: "PUT",
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedItem),
@@ -336,7 +337,7 @@ export function AppContextProvider({ children }) {
 
   const deleteNoticia = async (id) => {
     try {
-      const response = await fetch(`/api/noticias/${id}`, {
+      const response = await fetch(`${API_BASE}/api/noticias/${id}`, {
         method: "DELETE",
         headers: getAuthHeaders()
       });
@@ -368,7 +369,7 @@ export function AppContextProvider({ children }) {
   const importData = async (jsonData) => {
     try {
       const parsed = JSON.parse(jsonData);
-      const response = await fetch("/api/import", {
+      const response = await fetch(`${API_BASE}/api/import`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(parsed),

@@ -81,8 +81,12 @@ Este proyecto puede desplegarse con el backend en Render y el frontend en Vercel
 2. Framework preset: **Vite**.
 3. Build command: `npm run build`.
 4. Output directory: `dist`.
-5. El archivo `vercel.json` ya contiene los rewrites para redirigir `/api/*` al backend de Render.
-6. Tras el deploy, actualiza `CORS_ORIGIN` en Render con el dominio que Vercel te asigne y redeploya el backend.
+5. Añade la variable de entorno:
+   ```env
+   VITE_API_URL=https://recursos-docentes.onrender.com
+   ```
+6. El archivo `vercel.json` contiene el catch-all SPA para que React Router funcione.
+7. Tras el deploy, actualiza `CORS_ORIGIN` en Render con el dominio que Vercel te asigne y redeploya el backend.
 
 ## Usuarios de prueba
 

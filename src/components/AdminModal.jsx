@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
+import { API_BASE } from "../utils/api.js";
 import { getYouTubeId, getYouTubeThumbnail, isValidYouTubeUrl } from "../utils/youtube";
 
 const AREAS_CNEB = [
@@ -121,7 +122,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       setUploadProgressMsg("Subiendo archivo...");
       const formData = new FormData();
       formData.append("file", file);
-      const response = await fetch("/api/upload", {
+      const response = await fetch(`${API_BASE}/api/upload`, {
         method: "POST",
         headers: { ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: formData

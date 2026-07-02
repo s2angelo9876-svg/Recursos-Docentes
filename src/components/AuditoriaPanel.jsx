@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { API_BASE } from "../utils/api.js";
 import {
   BarChart,
   Bar,
@@ -103,7 +104,7 @@ export default function AuditoriaPanel() {
       const qs = new URLSearchParams();
       if (filtroDesde) qs.set("desde", filtroDesde);
       if (filtroHasta) qs.set("hasta", filtroHasta);
-      const res = await fetch(`/api/admin/auditoria/stats?${qs}`, {
+      const res = await fetch(`${API_BASE}/api/admin/auditoria/stats?${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setStats(await res.json());
@@ -117,7 +118,7 @@ export default function AuditoriaPanel() {
       setLoadingLogs(true);
       try {
         const qs = buildParams({ page: p, limit: 50 });
-        const res = await fetch(`/api/admin/auditoria?${qs}`, {
+        const res = await fetch(`${API_BASE}/api/admin/auditoria?${qs}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -149,7 +150,7 @@ export default function AuditoriaPanel() {
     setExporting(true);
     try {
       const qs = buildParams();
-      const res = await fetch(`/api/admin/auditoria/export-csv?${qs}`, {
+      const res = await fetch(`${API_BASE}/api/admin/auditoria/export-csv?${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Error al exportar");

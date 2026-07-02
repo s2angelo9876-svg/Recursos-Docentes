@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useApp } from "../context/AppContext";
+import { API_BASE } from "../utils/api.js";
 import Repositorio from "./Repositorio";
 import Tutoriales from "./Tutoriales";
 import Noticias from "./Noticias";
@@ -47,7 +48,7 @@ export default function AdminPanel() {
   const fetchUsuarios = useCallback(async () => {
     try {
       setLoadingUsers(true);
-      const response = await fetch("/api/auth/users", {
+      const response = await fetch(`${API_BASE}/api/auth/users`, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
@@ -116,7 +117,7 @@ export default function AdminPanel() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/docentes/bulk-upload", {
+      const response = await fetch(`${API_BASE}/api/docentes/bulk-upload`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`
@@ -162,7 +163,7 @@ export default function AdminPanel() {
     try {
       setUserError("");
       setUserSuccess("");
-      const response = await fetch(`/api/auth/users/${userId}`, {
+      const response = await fetch(`${API_BASE}/api/auth/users/${userId}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -202,7 +203,7 @@ export default function AdminPanel() {
       setSavingPass(true);
       setPassError("");
       setPassSuccess("");
-      const response = await fetch(`/api/auth/users/${editingPasswordUser.id}/password`, {
+      const response = await fetch(`${API_BASE}/api/auth/users/${editingPasswordUser.id}/password`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -231,7 +232,7 @@ export default function AdminPanel() {
   const generateServerBackup = async () => {
     try {
       setImportStatus("Generando copia de seguridad física en el servidor...");
-      const response = await fetch("/api/admin/backup", {
+      const response = await fetch(`${API_BASE}/api/admin/backup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

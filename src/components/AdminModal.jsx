@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { getYouTubeId, getYouTubeThumbnail, isValidYouTubeUrl } from "../utils/youtube";
 
@@ -73,7 +73,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
         setIsCollection(isColl);
         if (!isColl) {
           const firstCont = editingItem.contenidos?.[0];
-          const isFile = firstCont?.tipo === "archivo" || (editingItem.url && editingItem.url.startsWith("/uploads/"));
+          const isFile = firstCont?.tipo === "archivo";
           setSingleSourceType(isFile ? "archivo" : "url");
           setSingleUrl(isFile ? "" : (editingItem.url || ""));
           setSingleFile(null);
@@ -137,8 +137,8 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
       setUploadProgressMsg("¡Archivo cargado!");
       setTimeout(() => setUploadProgressMsg(""), 2000);
       return resData.url;
-    } catch (err) {
-      console.error(err);
+    } catch (_err) {
+      console.error(_err);
       alert("Fallo al subir archivo al servidor.");
       setUploadProgressMsg("Error al cargar.");
       return null;
@@ -173,7 +173,7 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
 
     if (type === "recursos") {
       if (!recTitulo || !recDesc) { alert("Complete los campos obligatorios."); return; }
-      let finalUrl = "", finalContenidos = [];
+      let finalUrl, finalContenidos;
       if (isCollection) {
         if (recContenidos.length === 0) { alert("Añade al menos 1 material a la colección."); return; }
         finalUrl = recContenidos[0]?.url || "#";
@@ -375,11 +375,11 @@ export default function AdminModal({ isOpen, onClose, type, editingItem }) {
                     <div className="space-y-1">
                       <label className="block w-full py-3 border border-dashed border-gray-300 dark:border-dark-border hover:bg-gray-100 dark:hover:bg-dark-hover rounded-xl text-center cursor-pointer text-xs font-bold text-gray-600 dark:text-gray-300 transition-colors">
                         <i className="fas fa-file-upload mr-2 text-primary dark:text-dark-accent text-lg"></i>
-                        {singleFile ? singleFile.name : (editingItem?.url?.startsWith("/uploads/") ? editingItem.url.split("/").pop() : "Examinar archivo")}
+                        {singleFile ? singleFile.name : (editingItem?.url ? "Cambiar archivo actual" : "Examinar archivo")}
                         <input type="file" onChange={(e) => setSingleFile(e.target.files[0])} className="hidden" />
                       </label>
-                      {!singleFile && editingItem?.url?.startsWith("/uploads/") && (
-                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 italic font-bold text-center">✓ Archivo actual guardado en servidor</div>
+                      {!singleFile && editingItem?.url && (
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 italic font-bold text-center">✓ Archivo actual en Supabase Storage</div>
                       )}
                     </div>
                   )}

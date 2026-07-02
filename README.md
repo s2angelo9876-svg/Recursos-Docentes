@@ -22,8 +22,8 @@ El sistema maneja tres perfiles diferenciados:
 ### 3. Funcionamiento Técnico y Arquitectura
 *   **Frontend:** Desarrollado en React, estructurado con Vite para máxima velocidad, estilizado con Tailwind CSS, y enriquecido con animaciones fluidas utilizando Framer Motion.
 *   **Backend:** Servidor API RESTful construido en Express.js con protección Helmet y Rate Limiting para asegurar la estabilidad.
-*   **Persistencia:** Gestionado con Sequelize ORM. Se conecta a una base de datos PostgreSQL alojada en Supabase en producción, y cuenta con un fallback local mediante SQLite para entornos offline o locales.
-*   **Almacenamiento:** Los archivos subidos se guardan opcionalmente en Supabase Storage (en la nube) o de manera local en el disco del servidor (`uploads/`).
+*   **Persistencia:** Gestionado con Sequelize ORM. Se conecta a una base de datos PostgreSQL alojada en Supabase.
+*   **Almacenamiento:** Los archivos subidos se guardan en Supabase Storage.
 
 ---
 
@@ -47,7 +47,7 @@ Inicia el frontend (Vite en `:5173`) y el backend (Express en `:5000`) en parale
 npm run dev
 ```
 
-Abre [http://localhost:5173](http://localhost:5173). Las peticiones a `/api` y `/uploads` se rediriguen al servidor automáticamente.
+Abre [http://localhost:5173](http://localhost:5173). Las peticiones a `/api` se rediriguen al servidor automáticamente.
 
 ## Producción
 
@@ -80,10 +80,10 @@ Cambia estas contraseñas antes de desplegar en un entorno real.
 | `PORT`                      | Puerto del servidor Express                      | `5000`                     |
 | `NODE_ENV`                  | `development` o `production`                     | `development`              |
 | `CORS_ORIGIN`               | Orígenes permitidos en prod (separados por coma) | `http://localhost:5173`    |
-| `DATABASE_URL`              | URL de conexión a PostgreSQL (ej. Supabase)      | —                          |
-| `DB_PATH`                   | Ruta a SQLite (fallback si no hay DATABASE_URL)  | `./db/innova.sqlite`       |
+| `DATABASE_URL`              | URL de conexión a PostgreSQL (Supabase)          | —                          |
 | `SUPABASE_URL`              | URL del proyecto Supabase (Storage)              | —                          |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key para Supabase Storage           | —                          |
+| `SUPABASE_STORAGE_BUCKET`   | Nombre del bucket de Supabase Storage            | `recursos-uploads`         |
 
 Consulta [`.env.example`](.env.example) para la plantilla.
 
@@ -92,36 +92,13 @@ Consulta [`.env.example`](.env.example) para la plantilla.
 ```
 Recursos/
 ├── src/              # Frontend React + Vite
-├── server.js         # Backend Express + SQLite/PostgreSQL
+├── server.js         # Backend Express + PostgreSQL/Supabase
 ├── db.json           # Datos de ejemplo (seed al primer arranque)
 ├── server/           # Modelos y servicios compartidos
-├── scripts/          # Scripts de utilidad (migración, etc.)
-├── db/               # Base de datos SQLite (solo en modo SQLite)
-├── uploads/          # Archivos subidos por el CMS (fallback local)
+├── scripts/          # Scripts de utilidad
+├── backups/          # Respaldos JSON generados por el admin
 ├── dist/             # Build de producción (generado con npm run build)
 ```
-
-## Migración SQLite → PostgreSQL
-
-1. Configura `DATABASE_URL` en tu `.env` con la URL de Supabase.
-2. Asegúrate de que `DB_PATH` apunte a la base de datos SQLite de origen.
-3. Ejecuta el script de migración:
-
-```bash
-node scripts/migrate-sqlite-to-postgres.js
-```
-
-El script creará las tablas en PostgreSQL y migrará `Usuarios`, `Recursos`, `Tutorials` y `Noticia`.
-
-## Migración de archivos a Supabase Storage
-
-Si configuras `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`, los archivos subidos se almacenarán en Supabase Storage. Para migrar archivos existentes de `uploads/`:
-
-```bash
-node scripts/migrate-uploads-to-storage.js
-```
-
-Si no configuras Storage, los archivos seguirán guardándose en disco local (`uploads/`).
 
 ## Notas sobre Supabase (plan gratuito)
 

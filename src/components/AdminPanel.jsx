@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useApp } from "../context/AppContext";
 import Repositorio from "./Repositorio";
 import Tutoriales from "./Tutoriales";
@@ -44,7 +44,7 @@ export default function AdminPanel() {
   const [importingExcel, setImportingExcel] = useState(false);
   const excelInputRef = useRef(null);
 
-  const fetchUsuarios = async () => {
+  const fetchUsuarios = useCallback(async () => {
     try {
       setLoadingUsers(true);
       const response = await fetch("/api/auth/users", {
@@ -57,18 +57,18 @@ export default function AdminPanel() {
         const data = await response.json();
         setUsuarios(data);
       }
-    } catch (err) {
-      console.error("Error al obtener usuarios:", err);
+    } catch (_err) {
+      console.error("Error al obtener usuarios:", _err);
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     if (activeSubTab === "usuarios") {
       fetchUsuarios();
     }
-  }, [activeSubTab]);
+  }, [activeSubTab, fetchUsuarios]);
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
@@ -95,7 +95,7 @@ export default function AdminPanel() {
       } else {
         setUserError(res.error || "No se pudo crear el usuario.");
       }
-    } catch (err) {
+    } catch {
       setUserError("Error de conexión al crear usuario.");
     } finally {
       setCreatingUser(false);
@@ -139,9 +139,9 @@ export default function AdminPanel() {
       } else {
         setUserError(data.error || "Ocurrió un error al procesar el archivo Excel.");
       }
-    } catch (err) {
+    } catch (_err) {
       setUserError("Error de conexión al cargar el archivo Excel.");
-      console.error(err);
+      console.error(_err);
     } finally {
       setImportingExcel(false);
     }
@@ -176,7 +176,7 @@ export default function AdminPanel() {
         const data = await response.json();
         setUserError(data.error || "Error al eliminar usuario.");
       }
-    } catch (err) {
+    } catch {
       setUserError("Error de conexión al eliminar usuario.");
     }
   };
@@ -221,7 +221,7 @@ export default function AdminPanel() {
       } else {
         setPassError(data.error || "No se pudo actualizar la contraseña.");
       }
-    } catch (err) {
+    } catch {
       setPassError("Error al intentar cambiar la contraseña.");
     } finally {
       setSavingPass(false);
@@ -246,8 +246,8 @@ export default function AdminPanel() {
         setImportStatus(`Error al generar copia: ${data.error || "No autorizado o error del servidor."}`);
         setTimeout(() => setImportStatus(""), 4000);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (_err) {
+      console.error(_err);
       setImportStatus("Error de conexión al generar copia de seguridad.");
       setTimeout(() => setImportStatus(""), 4000);
     }

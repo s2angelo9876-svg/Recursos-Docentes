@@ -23,15 +23,6 @@ export default defineConfig({
           });
         },
       },
-      '/uploads': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        proxyTimeout: 10000,
-        configure: (proxy) => {
-          proxy.on('error', () => {}); // silenciar errores de arranque
-        },
-      }
     }
   }
 })
-

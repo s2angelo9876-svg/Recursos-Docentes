@@ -17,5 +17,19 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // Los efectos de carga inicial son intencionales en este codebase
+      'react-hooks/set-state-in-effect': 'off',
+      // Los archivos de contexto exportan hook + provider
+      'react-refresh/only-export-components': 'off',
+      // Variables catch no usadas se marcan con guión bajo
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['server.js', 'server/**/*.js', 'scripts/**/*.js', 'tests/**/*.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
   },
 ])

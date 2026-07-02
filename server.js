@@ -1,6 +1,3 @@
-console.log("🚀 [DEBUG CRÍTICO] ¡El archivo server.js SÍ se está ejecutando en Render!");
-// ... todo el resto de tus imports y código actual abajo
-
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -15,7 +12,7 @@ import { fileURLToPath } from "url";
 import { Sequelize, Op } from "sequelize";
 import { defineModels } from "./server/models.js";
 import * as XLSX from "xlsx";
-import { uploadFile, deleteFile, isStorageEnabled } from "./server/services/storage.js";
+import { uploadFile, deleteFile } from "./server/services/storage.js";
 import logger from "./server/services/logger.js";
 import { validateBody } from "./server/middleware.js";
 import {
@@ -47,6 +44,10 @@ if (isProduction && !process.env.JWT_SECRET) {
   setTimeout(() => process.exit(1), 1000);
 }
 
+const supabaseHost = process.env.SUPABASE_URL
+  ? new URL(process.env.SUPABASE_URL).origin
+  : null;
+
 // Security headers
 app.disable("x-powered-by");
 app.use(helmet({
@@ -56,9 +57,9 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
+      imgSrc: ["'self'", "data:", "https:"],
       frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com"],
-      connectSrc: ["'self'"],
+      connectSrc: supabaseHost ? ["'self'", supabaseHost] : ["'self'"],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -102,46 +103,35 @@ app.use("/api/", apiLimiter);
 app.use("/api/upload", uploadLimiter);
 app.use("/api/admin/auditoria", auditoriaLimiter);
 
-// Initialize database connection (PostgreSQL via DATABASE_URL or SQLite fallback)
+// Initialize database connection (Supabase PostgreSQL)
 function createSequelizeInstance() {
   const databaseUrl = process.env.DATABASE_URL;
 
-  if (databaseUrl) {
-    logger.info("🔌 Conectando a PostgreSQL (DATABASE_URL detectada).");
-    return new Sequelize(databaseUrl, {
-      dialect: "postgres",
-      dialectOptions: {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false,
-        },
-      },
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000,
-      },
-      logging: false,
-    });
+  if (!databaseUrl) {
+    logger.error("❌ DATABASE_URL no está definida. Es obligatoria para conectar a Supabase PostgreSQL.");
+    setTimeout(() => process.exit(1), 1000);
   }
 
-  logger.info("🔌 Conectando a SQLite (DATABASE_URL no definida).");
-  return new Sequelize({
-    dialect: "sqlite",
-    storage: process.env.DB_PATH || path.join(__dirname, "db", "innova.sqlite"),
+  logger.info("🔌 Conectando a PostgreSQL (Supabase).");
+  return new Sequelize(databaseUrl, {
+    dialect: "postgres",
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000,
+    },
     logging: false,
   });
 }
 
 const sequelize = createSequelizeInstance();
-
-// Ensure uploads folder exists
-const uploadDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-app.use("/uploads", express.static(uploadDir));
 
 // --- SEQUELIZE SCHEMA DEFINITIONS ---
 
@@ -692,11 +682,11 @@ app.delete("/api/recursos/:id", authenticateToken, requireRole(["Administrador",
     const resource = await Recurso.findByPk(id);
     if (!resource) return res.status(404).json({ error: "Recurso no encontrado" });
 
-    await deleteFile(resource.url, uploadDir);
+    await deleteFile(resource.url);
 
     const contentList = resource.contenidos || [];
     for (const item of contentList) {
-      await deleteFile(item.url, uploadDir);
+      await deleteFile(item.url);
     }
 
     await resource.destroy();
@@ -721,23 +711,6 @@ app.delete("/api/recursos/:id", authenticateToken, requireRole(["Administrador",
 });
 
 // --- PROYECTOS / TUTORIALES ENDPOINTS ---
-
-function getYouTubeId(url) {
-  if (!url) return null;
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=)([^&\s]+)/,
-    /(?:youtu\.be\/)([^?\s]+)/,
-    /(?:youtube\.com\/embed\/)([^?\s]+)/,
-    /(?:youtube\.com\/shorts\/)([^?\s]+)/,
-  ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m) return m[1];
-  }
-  return null;
-}
-
-const VALID_AUDIENCIAS = ["docente", "estudiante", "ambos"];
 
 app.get("/api/tutoriales", async (req, res) => {
   try {
@@ -944,36 +917,21 @@ app.post("/api/upload", authenticateToken, requireRole(["Administrador", "Docent
       return res.status(500).json({ error: err.message });
     }
     if (!req.file) {
-      console.log(`[AUDIT] ❌ Subida fallida: Multer no capturó ningún archivo.`);
+      logger.info("[AUDIT] Subida fallida: Multer no capturó ningún archivo.");
       return res.status(400).json({ error: "No se envió ningún archivo" });
     }
 
     try {
       const filename = generateFileName(req.file.originalname);
-      const result = await uploadFile(req.file.buffer, filename, req.file.mimetype, uploadDir);
-      console.log(`[AUDIT] ✅ Subida exitosa: Archivo=${result.filename} (${req.file.size} bytes) | Storage=${result.storage}`);
+      const result = await uploadFile(req.file.buffer, filename, req.file.mimetype);
+      logger.info(`[AUDIT] Subida exitosa: Archivo=${result.filename} (${req.file.size} bytes) | Storage=${result.storage}`);
       res.json({ success: true, url: result.url, filename: result.filename });
     } catch (uploadErr) {
-      console.error("[AUDIT] ❌ Error al guardar archivo:", uploadErr.message);
+      logger.error("[AUDIT] Error al guardar archivo:", { error: uploadErr.message });
       res.status(500).json({ error: uploadErr.message });
     }
   });
 });
-
-// Helper for recursive directory copy
-function copyDirSync(src, dest) {
-  fs.mkdirSync(dest, { recursive: true });
-  const entries = fs.readdirSync(src, { withFileTypes: true });
-  for (let entry of entries) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      copyDirSync(srcPath, destPath);
-    } else {
-      fs.copyFileSync(srcPath, destPath);
-    }
-  }
-}
 
 // --- API BACKUP EXPORT ENDPOINT (Fase 5) ---
 app.post("/api/admin/backup", authenticateToken, requireRole(["Administrador"]), async (req, res) => {
@@ -986,37 +944,21 @@ app.post("/api/admin/backup", authenticateToken, requireRole(["Administrador"]),
     const currentBackupDir = path.join(backupsDir, `respaldo_${timestamp}`);
     fs.mkdirSync(currentBackupDir, { recursive: true });
 
-    const isPostgres = sequelize.getDialect() === "postgres";
+    // Exportar datos a JSON para respaldo
+    const [recursos, tutoriales, noticias] = await Promise.all([
+      Recurso.findAll(),
+      Tutorial.findAll(),
+      Noticia.findAll(),
+    ]);
+    fs.writeFileSync(
+      path.join(currentBackupDir, "data.json"),
+      JSON.stringify({ recursos, tutoriales, noticias }, null, 2)
+    );
 
-    if (isPostgres) {
-      // Exportar datos a JSON para respaldo
-      const [recursos, tutoriales, noticias] = await Promise.all([
-        Recurso.findAll(),
-        Tutorial.findAll(),
-        Noticia.findAll(),
-      ]);
-      fs.writeFileSync(
-        path.join(currentBackupDir, "data.json"),
-        JSON.stringify({ recursos, tutoriales, noticias }, null, 2)
-      );
-    } else {
-      // Copy SQLite database file
-      const dbPath = sequelize.options.storage || path.join(__dirname, "db", "innova.sqlite");
-      if (fs.existsSync(dbPath)) {
-        fs.copyFileSync(dbPath, path.join(currentBackupDir, "innova.sqlite"));
-      }
-    }
-
-    // Copy local uploads folder (if files are still stored locally)
-    const uploadsSource = path.join(__dirname, "uploads");
-    if (fs.existsSync(uploadsSource)) {
-      copyDirSync(uploadsSource, path.join(currentBackupDir, "uploads"));
-    }
-
-    console.log(`[AUDIT] ✅ Copia de seguridad generada con éxito en: ${currentBackupDir}`);
+    logger.info(`[AUDIT] Copia de seguridad generada: ${currentBackupDir}`);
     res.json({ success: true, folder: `backups/respaldo_${timestamp}` });
   } catch (err) {
-    console.error("Error al generar copia de seguridad:", err);
+    logger.error("Error al generar copia de seguridad:", { error: err.message, stack: err.stack });
     res.status(500).json({ error: "Fallo al generar copia de seguridad en el servidor." });
   }
 });
@@ -1195,7 +1137,7 @@ app.get("/api/admin/auditoria/export-csv", authenticateToken, requireRole(["Admi
 if (isProduction) {
   const distPath = path.join(__dirname, "dist");
   app.use(express.static(distPath));
-  app.get("/:any*", (req, res) => {
+  app.use((req, res) => {
     res.sendFile(path.join(distPath, "index.html"));
   });
 }
@@ -1294,7 +1236,7 @@ const SEED_NOTICIAS = [
 
 sequelize.sync({ alter: true })
   .then(async () => {
-    console.log("🔋 Base de datos sincronizada.");
+    logger.info("🔋 Base de datos sincronizada.");
 
     const userCount = await Usuario.count();
 
@@ -1308,31 +1250,31 @@ sequelize.sync({ alter: true })
         }
       ]);
 
-      console.log("👥 Usuario administrador único creado.");
+      logger.info("👥 Usuario administrador único creado.");
     }
 
     const seedData = loadSeedData();
 
     if (await Recurso.count() === 0 && seedData.recursos.length > 0) {
       await Recurso.bulkCreate(seedData.recursos);
-      console.log(`📚 ${seedData.recursos.length} recursos de ejemplo cargados.`);
+      logger.info(`📚 ${seedData.recursos.length} recursos de ejemplo cargados.`);
     }
 
     if (await Tutorial.count() === 0 && seedData.tutoriales.length > 0) {
       await Tutorial.bulkCreate(seedData.tutoriales);
-      console.log(`🎓 ${seedData.tutoriales.length} tutoriales de ejemplo cargados.`);
+      logger.info(`🎓 ${seedData.tutoriales.length} tutoriales de ejemplo cargados.`);
     }
 
     if (await Noticia.count() === 0 && seedData.noticias.length > 0) {
       await Noticia.bulkCreate(seedData.noticias);
-      console.log(`📰 ${seedData.noticias.length} noticias de ejemplo cargadas.`);
+      logger.info(`📰 ${seedData.noticias.length} noticias de ejemplo cargadas.`);
     }
 
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 SERVIDOR ACTIVO EN PUERTO ${PORT}`);
+      logger.info(`🚀 Servidor activo en puerto ${PORT}`);
     });
 
   })
   .catch(err => {
-    console.error("❌ Error al sincronizar:", err);
+    logger.error("❌ Error al sincronizar:", { error: err.message, stack: err.stack });
   });

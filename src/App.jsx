@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppContextProvider, useApp } from "./context/AppContext";
@@ -44,11 +44,31 @@ function MaintenanceView({ title }) {
   );
 }
 
+function SectionHeader({ icon, iconColor, title, onAdd }) {
+  return (
+    <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-dark-border">
+      <div className="flex items-center gap-2.5">
+        <div className={`w-8 h-8 rounded-lg ${iconColor} flex items-center justify-center`}>
+          <i className={`${icon} text-[14px]`}></i>
+        </div>
+        <h2 className="text-lg font-black uppercase tracking-tight text-gray-900 dark:text-white">{title}</h2>
+      </div>
+      {onAdd && (
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary dark:bg-dark-accent hover:bg-blue-800 dark:hover:bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md active:scale-95"
+        >
+          <i className="fas fa-plus-circle text-[11px]"></i> Nuevo
+        </button>
+      )}
+    </div>
+  );
+}
+
 function AppContent() {
-  const { currentUser, deleteRecurso, deleteTutorial, deleteNoticia } = useApp();
+  const { currentUser, deleteTutorial } = useApp();
   const isAdmin = currentUser?.rol === "Administrador";
   const isDocente = currentUser?.rol === "Docente";
-  const canEditRecursosTutoriales = isAdmin || isDocente;
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -77,32 +97,6 @@ function AppContent() {
   const openCmsAdd = (type) => setCmsModal({ open: true, type, item: null });
   const openCmsEdit = (type, item) => setCmsModal({ open: true, type, item });
   const closeCms = () => setCmsModal({ open: false, type: "recursos", item: null });
-
-  const canAddInSection = (cmsType) => {
-    if (cmsType === "noticias" || cmsType === "tutoriales") return isAdmin;
-    if (cmsType === "recursos") return canEditRecursosTutoriales;
-    return false;
-  };
-
-  // ── Section header with optional CMS add button ────────
-  const SectionHeader = ({ icon, iconColor, title, cmsType }) => (
-    <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-dark-border">
-      <div className="flex items-center gap-2.5">
-        <div className={`w-8 h-8 rounded-lg ${iconColor} flex items-center justify-center`}>
-          <i className={`${icon} text-[14px]`}></i>
-        </div>
-        <h2 className="text-lg font-black uppercase tracking-tight text-gray-900 dark:text-white">{title}</h2>
-      </div>
-      {canAddInSection(cmsType) && cmsType && (
-        <button
-          onClick={() => openCmsAdd(cmsType)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary dark:bg-dark-accent hover:bg-blue-800 dark:hover:bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md active:scale-95"
-        >
-          <i className="fas fa-plus-circle text-[11px]"></i> Nuevo
-        </button>
-      )}
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] dark:bg-dark-bg text-gray-900 dark:text-gray-100 antialiased flex flex-col justify-between transition-colors duration-300">
@@ -180,7 +174,7 @@ function AppContent() {
                   icon="fab fa-youtube"
                   iconColor="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
                   title="Tutoriales TIC"
-                  cmsType="tutoriales"
+                  onAdd={isAdmin ? () => openCmsAdd("tutoriales") : null}
                 />
                 <Tutoriales
                   isAdminMode={isAdmin}

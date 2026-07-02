@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useApp } from "../context/AppContext";
 
 export default function Login({ onLoginSuccess }) {
@@ -24,7 +24,7 @@ export default function Login({ onLoginSuccess }) {
       } else {
         setError(res.error || "Usuario o contraseña incorrectos.");
       }
-    } catch (err) {
+    } catch {
       setError("Ocurrió un error al intentar iniciar sesión.");
     } finally {
       setLoading(false);

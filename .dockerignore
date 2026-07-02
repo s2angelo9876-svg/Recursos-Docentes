@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+dist
+.env
+.env.local
+.env.*.local
+logs
+backups
+uploads
+db
+.git
+.gitignore
+README.md
+antigravityrules.md
+docker-compose.yml
+Dockerfile
+.dockerignore

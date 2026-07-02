@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 const AppContext = createContext();
 
@@ -107,8 +107,8 @@ export function AppContextProvider({ children }) {
       } else {
         return { success: false, error: data.error || "Fallo al iniciar sesión." };
       }
-    } catch (err) {
-      console.error("Login error:", err);
+    } catch (_err) {
+      console.error("Login error:", _err);
       return { success: false, error: "Error de servidor en inicio de sesión." };
     }
   };
@@ -129,8 +129,8 @@ export function AppContextProvider({ children }) {
       } else {
         return { success: false, error: data.error || "Fallo en el registro." };
       }
-    } catch (err) {
-      console.error("Register error:", err);
+    } catch (_err) {
+      console.error("Register error:", _err);
       return { success: false, error: "Error de servidor en el registro." };
     }
   };
@@ -195,8 +195,8 @@ export function AppContextProvider({ children }) {
           setRecursos((prev) => [newItem, ...prev]);
         }
       }
-    } catch (err) {
-      console.error("Error al agregar recurso:", err);
+    } catch (_err) {
+      console.error("Error al agregar recurso:", _err);
     }
   };
 
@@ -214,8 +214,8 @@ export function AppContextProvider({ children }) {
           );
         }
       }
-    } catch (err) {
-      console.error("Error al editar recurso:", err);
+    } catch (_err) {
+      console.error("Error al editar recurso:", _err);
     }
   };
 
@@ -231,8 +231,8 @@ export function AppContextProvider({ children }) {
           setFavoritos((prev) => prev.filter((favId) => String(favId) !== String(id)));
         }
       }
-    } catch (err) {
-      console.error("Error al eliminar recurso:", err);
+    } catch (_err) {
+      console.error("Error al eliminar recurso:", _err);
     }
   };
 
@@ -256,8 +256,8 @@ export function AppContextProvider({ children }) {
           setTutoriales((prev) => [newItem, ...prev]);
         }
       }
-    } catch (err) {
-      console.error("Error al agregar tutorial:", err);
+    } catch (_err) {
+      console.error("Error al agregar tutorial:", _err);
     }
   };
 
@@ -275,8 +275,8 @@ export function AppContextProvider({ children }) {
           );
         }
       }
-    } catch (err) {
-      console.error("Error al editar tutorial:", err);
+    } catch (_err) {
+      console.error("Error al editar tutorial:", _err);
     }
   };
 
@@ -291,8 +291,8 @@ export function AppContextProvider({ children }) {
           setTutoriales((prev) => prev.filter((item) => String(item.id) !== String(id)));
         }
       }
-    } catch (err) {
-      console.error("Error al eliminar tutorial:", err);
+    } catch (_err) {
+      console.error("Error al eliminar tutorial:", _err);
     }
   };
 
@@ -310,8 +310,8 @@ export function AppContextProvider({ children }) {
           setNoticias((prev) => [newItem, ...prev]);
         }
       }
-    } catch (err) {
-      console.error("Error al publicar comunicado:", err);
+    } catch (_err) {
+      console.error("Error al publicar comunicado:", _err);
     }
   };
 
@@ -329,8 +329,8 @@ export function AppContextProvider({ children }) {
           );
         }
       }
-    } catch (err) {
-      console.error("Error al editar comunicado:", err);
+    } catch (_err) {
+      console.error("Error al editar comunicado:", _err);
     }
   };
 
@@ -345,8 +345,8 @@ export function AppContextProvider({ children }) {
           setNoticias((prev) => prev.filter((item) => String(item.id) !== String(id)));
         }
       }
-    } catch (err) {
-      console.error("Error al eliminar comunicado:", err);
+    } catch (_err) {
+      console.error("Error al eliminar comunicado:", _err);
     }
   };
 
@@ -380,9 +380,9 @@ export function AppContextProvider({ children }) {
         }
       }
       return { success: false, error: "Fallo en el servidor al procesar la base de datos." };
-    } catch (err) {
-      console.error("Error al importar datos:", err);
-      return { success: false, error: err.message };
+    } catch (_err) {
+      console.error("Error al importar datos:", _err);
+      return { success: false, error: _err.message };
     }
   };
 

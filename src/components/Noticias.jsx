@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -7,7 +7,7 @@ export default function Noticias({ isAdminMode = false, onEditClick = null }) {
   const [selectedNews, setSelectedNews] = useState(null);
   const [lastVisit, setLastVisit] = useState(0);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const prevVisit = localStorage.getItem("innova_last_noticias_visit");
     // If first time, highlight items from last 48 hours. Otherwise, items since last visit.
     setLastVisit(prevVisit ? Number(prevVisit) : Date.now() - 48 * 60 * 60 * 1000);

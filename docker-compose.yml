@@ -4,22 +4,13 @@ services:
   app:
     build: .
     ports:
-      - "5000:10000" # Mapea el puerto 5000 de tu PC al 10000 interno del contenedor
+      - "5000:10000"
+    env_file:
+      - .env
     environment:
       - PORT=10000
       - NODE_ENV=production
-      - JWT_SECRET=2b5065a74459972168ddc5b72f2a47495b949723bd01c42d4531515f3a0a7585
       - CORS_ORIGIN=http://localhost:5000
-      - DATABASE_URL=postgresql://postgres.mymemodehnldwityyarq:Recursos-database01@aws-1-sa-east-1.pooler.supabase.com:6543/postgres
-      - SUPABASE_URL=https://mymemodehnldwityyarq.supabase.co
-      - SUPABASE_SERVICE_ROLE_KEY=sb_secret_iyLjtF_NokzBFd-uW5CC7Q_qtmHrAOl
     volumes:
-      - ./db:/app/db
-      - ./uploads:/app/uploads
       - ./backups:/app/backups
     restart: always
-
-volumes:
-  db-data:
-  uploads-volume:
-  backups-volume:

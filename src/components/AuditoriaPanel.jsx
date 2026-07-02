@@ -134,12 +134,10 @@ export default function AuditoriaPanel() {
     [token, buildParams]
   );
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchStats();
     fetchLogs(1);
   }, [fetchStats, fetchLogs]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleFilter = (e) => {
     e.preventDefault();
@@ -164,8 +162,8 @@ export default function AuditoriaPanel() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err) {
-      alert("No se pudo exportar: " + err.message);
+    } catch (_err) {
+      alert("No se pudo exportar: " + _err.message);
     } finally {
       setExporting(false);
     }

@@ -61,6 +61,29 @@ Abre [http://localhost:5000](http://localhost:5000) (o la IP de la máquina en l
 
 **Importante:** En producción, define un `JWT_SECRET` seguro en `.env`. Sin él, el servidor no arrancará.
 
+## Despliegue separado (Render + Vercel)
+
+Este proyecto puede desplegarse con el backend en Render y el frontend en Vercel.
+
+### Backend en Render
+
+1. Crea un Web Service en Render apuntando a tu repositorio.
+2. Configura el Start Command: `npm start`.
+3. Añade las variables de entorno necesarias (ver tabla más abajo).
+4. Asegúrate de que `CORS_ORIGIN` incluya el dominio de Vercel:
+   ```
+   CORS_ORIGIN=https://recursos-docentes-aip.vercel.app,http://localhost:5173
+   ```
+
+### Frontend en Vercel
+
+1. Importa el mismo repositorio en Vercel.
+2. Framework preset: **Vite**.
+3. Build command: `npm run build`.
+4. Output directory: `dist`.
+5. El archivo `vercel.json` ya contiene los rewrites para redirigir `/api/*` al backend de Render.
+6. Tras el deploy, actualiza `CORS_ORIGIN` en Render con el dominio que Vercel te asigne y redeploya el backend.
+
 ## Usuarios de prueba
 
 | Usuario   | Contraseña   | Rol             |
